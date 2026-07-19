@@ -1,0 +1,1866 @@
+<title>Wish I Had a DB Plan — Retirement Income Planner</title>
+<style>
+  :root{
+    color-scheme: light;
+    --page:      #f2f3ef;
+    --surface:   #fcfcfb;
+    --card:      #ffffff;
+    --ink:       #0b0b0b;
+    --ink-2:     #52514e;
+    --ink-muted: #898781;
+    --line:      #e1e0d9;
+    --line-strong: rgba(11,11,11,0.14);
+    --dc:        #008300;
+    --db:        #2a78d6;
+    --good:      #0ca30c;
+    --warning:   #b9780a;
+    --warning-bg:#fdf1dc;
+    --critical:  #d03b3b;
+    --critical-bg:#fbe6e4;
+    --focus:     #2a78d6;
+
+    --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:where(:not([data-theme="light"])){
+      color-scheme: dark;
+      --page:      #14181a;
+      --surface:   #1a1a19;
+      --card:      #1d211f;
+      --ink:       #ffffff;
+      --ink-2:     #c3c2b7;
+      --ink-muted: #8f8d86;
+      --line:      #2c2c2a;
+      --line-strong: rgba(255,255,255,0.14);
+      --dc:        #1fae1f;
+      --db:        #3987e5;
+      --good:      #0ca30c;
+      --warning:   #e0a53a;
+      --warning-bg:#332a14;
+      --critical:  #e66767;
+      --critical-bg:#3a1c1a;
+      --focus:     #3987e5;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --page:      #14181a;
+    --surface:   #1a1a19;
+    --card:      #1d211f;
+    --ink:       #ffffff;
+    --ink-2:     #c3c2b7;
+    --ink-muted: #8f8d86;
+    --line:      #2c2c2a;
+    --line-strong: rgba(255,255,255,0.14);
+    --dc:        #1fae1f;
+    --db:        #3987e5;
+    --good:      #0ca30c;
+    --warning:   #e0a53a;
+    --warning-bg:#332a14;
+    --critical:  #e66767;
+    --critical-bg:#3a1c1a;
+    --focus:     #3987e5;
+  }
+  :root[data-theme="light"]{
+    color-scheme: light;
+    --page:      #f2f3ef;
+    --surface:   #fcfcfb;
+    --card:      #ffffff;
+    --ink:       #0b0b0b;
+    --ink-2:     #52514e;
+    --ink-muted: #898781;
+    --line:      #e1e0d9;
+    --line-strong: rgba(11,11,11,0.14);
+    --dc:        #008300;
+    --db:        #2a78d6;
+    --good:      #0ca30c;
+    --warning:   #b9780a;
+    --warning-bg:#fdf1dc;
+    --critical:  #d03b3b;
+    --critical-bg:#fbe6e4;
+    --focus:     #2a78d6;
+  }
+
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    padding: 32px 20px 80px;
+  }
+  a{ color: var(--db); }
+  .wrap{ max-width: 1180px; margin: 0 auto; }
+
+  /* ---------- header ---------- */
+  header.masthead{
+    display:flex; align-items:flex-end; justify-content:space-between; gap: 24px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line-strong);
+    padding-bottom: 18px; margin-bottom: 28px;
+  }
+  header.masthead .titles h1{
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(26px, 3.4vw, 36px);
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+  header.masthead .titles p{
+    margin:0; color: var(--ink-2); font-size: 14.5px; max-width: 62ch;
+  }
+  .maple{ font-size: 0.72em; vertical-align: 2px; opacity:.85; }
+  .theme-toggle{
+    display:flex; gap:2px; background: var(--surface); border:1px solid var(--line);
+    padding:3px; border-radius:3px; flex-shrink:0;
+  }
+  .theme-toggle button{
+    border:0; background:transparent; color:var(--ink-2); font: 12.5px var(--font-sans);
+    padding:6px 10px; border-radius:2px; cursor:pointer;
+  }
+  .theme-toggle button[aria-pressed="true"]{ background: var(--card); color: var(--ink); box-shadow: 0 0 0 1px var(--line); }
+  .theme-toggle button:focus-visible{ outline: 2px solid var(--focus); outline-offset:1px; }
+
+  /* ---------- layout ---------- */
+  .layout{ display:grid; grid-template-columns: 372px 1fr; gap: 24px; align-items:start; }
+  @media (max-width: 900px){ .layout{ grid-template-columns: 1fr; } }
+
+  .controls{ position: sticky; top: 20px; display:flex; flex-direction:column; gap:16px; }
+  @media (max-width: 900px){ .controls{ position: static; } }
+
+  .card{
+    background: var(--card); border:1px solid var(--line); border-radius: 3px;
+  }
+  .panel-card{ padding: 16px 18px 18px; }
+  .panel-card + .panel-card{ margin-top:0; }
+
+  .eyebrow{
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--ink-muted); font-weight: 600; margin: 0 0 2px;
+  }
+  .card h2{
+    font-family: var(--font-display); font-weight:400; font-size: 17px;
+    margin: 0 0 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+    color: var(--ink);
+  }
+  .card h2 small{ display:block; font-family:var(--font-sans); font-size:11.5px; color:var(--ink-muted); font-weight:400; margin-top:3px; }
+
+  .field{ margin-bottom: 12px; }
+  .field:last-child{ margin-bottom:0; }
+  .field-row{ display:flex; gap:10px; }
+  .field-row .field{ flex:1; }
+  .field label{
+    display:block; font-size: 12.5px; color: var(--ink-2); margin-bottom: 5px;
+  }
+  .field .hint{ font-size: 11px; color: var(--ink-muted); margin-top: 4px; line-height:1.4; }
+  .input-unit{
+    display:flex; align-items:stretch; border:1px solid var(--line); border-radius:2px;
+    background: var(--surface); overflow:hidden;
+  }
+  .input-unit:focus-within{ outline: 2px solid var(--focus); outline-offset: 0; border-color: transparent; }
+  .input-unit input{
+    flex:1; min-width:0; border:0; background:transparent; color:var(--ink);
+    font: 14px/1 var(--font-sans); font-variant-numeric: tabular-nums;
+    padding: 9px 8px 9px 10px;
+  }
+  .input-unit input:focus{ outline:none; }
+  .input-unit input[type=number]::-webkit-inner-spin-button{ opacity: 0.5; }
+  .input-unit .unit{
+    display:flex; align-items:center; padding: 0 10px; font-size:12.5px;
+    color: var(--ink-muted); background: var(--line); border-left:1px solid var(--line);
+    white-space:nowrap;
+  }
+  select.select-field{
+    width:100%; border:1px solid var(--line); border-radius:2px; background: var(--surface);
+    color: var(--ink); font: 14px var(--font-sans); padding: 9px 10px; appearance:none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%), linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
+    background-position: calc(100% - 16px) center, calc(100% - 11px) center;
+    background-size: 5px 5px, 5px 5px; background-repeat:no-repeat;
+  }
+  select.select-field:focus{ outline: 2px solid var(--focus); outline-offset: 0; border-color: transparent; }
+  .field.hint{ font-size: 11px; color: var(--ink-muted); line-height:1.5; margin-top:-6px; }
+  .checkbox-field{ display:flex; align-items:flex-start; gap:8px; margin-bottom:12px; }
+  .checkbox-field input{ margin-top:3px; accent-color: var(--db); }
+  .checkbox-field label{ font-size:12.5px; color:var(--ink-2); }
+  .checkbox-field label b{ color:var(--ink); font-weight:600; }
+
+  .reset-row{ display:flex; justify-content:flex-end; }
+  .reset-row button{
+    font:12px var(--font-sans); color: var(--ink-muted); background:none; border:0;
+    cursor:pointer; text-decoration: underline; text-underline-offset:2px; padding:2px;
+  }
+  .reset-row button:hover{ color: var(--ink); }
+
+  /* ---------- results ---------- */
+  .results{ display:flex; flex-direction:column; gap:16px; }
+
+  .compare-row{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+  @media (max-width: 560px){ .compare-row{ grid-template-columns: 1fr; } }
+
+  .stat-tile{ padding: 18px 20px; position:relative; }
+  .stat-tile .swatch{
+    display:inline-flex; align-items:center; gap:7px; font-size:11.5px;
+    text-transform: uppercase; letter-spacing:0.06em; color: var(--ink-muted); font-weight:600;
+    margin-bottom: 10px;
+  }
+  .stat-tile .swatch::before{
+    content:""; width:9px; height:9px; border-radius:50%; background: var(--dot);
+  }
+  .stat-tile.dc .swatch{ --dot: var(--dc); }
+  .stat-tile.db .swatch{ --dot: var(--db); }
+  .stat-tile .value{
+    font-size: clamp(30px, 3.6vw, 42px); font-weight:600; letter-spacing:-0.02em;
+    line-height:1; margin-bottom:6px;
+  }
+  .stat-tile .sub{ font-size:12.5px; color: var(--ink-2); }
+
+  .delta-strip{
+    display:flex; align-items:center; gap:10px; padding: 11px 18px; font-size:13px; color:var(--ink-2);
+    flex-wrap:wrap;
+  }
+  .delta-strip .amt{ font-weight:600; color:var(--ink); font-variant-numeric: tabular-nums; }
+
+  .status-chip{
+    display:inline-flex; align-items:center; gap:8px; padding:9px 14px; border-radius:2px;
+    font-size:13px; line-height:1.45; margin: 2px 18px 16px;
+  }
+  .status-chip.good{ background: color-mix(in srgb, var(--good) 12%, var(--card)); color: var(--ink); border:1px solid color-mix(in srgb, var(--good) 35%, transparent); }
+  .status-chip.warning{ background: var(--warning-bg); color: var(--ink); border:1px solid color-mix(in srgb, var(--warning) 45%, transparent); }
+  .status-chip.critical{ background: var(--critical-bg); color: var(--ink); border:1px solid color-mix(in srgb, var(--critical) 45%, transparent); }
+  .status-chip .dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:1px; }
+  .status-chip.good .dot{ background: var(--good); }
+  .status-chip.warning .dot{ background: var(--warning); }
+  .status-chip.critical .dot{ background: var(--critical); }
+
+  .chart-card{ padding: 16px 18px 10px; }
+  .chart-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom: 4px; }
+  .chart-head .legend{ display:flex; gap:14px; flex-wrap:wrap; }
+  .legend-item{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-2); }
+  .legend-item .sw{ width:14px; height:2px; border-radius:1px; }
+  .legend-item.area .sw{ height:8px; }
+  .toggle-btn{
+    font:11.5px var(--font-sans); color:var(--ink-muted); background:none; border:1px solid var(--line);
+    border-radius:2px; padding:4px 8px; cursor:pointer; flex-shrink:0;
+  }
+  .toggle-btn:hover{ color:var(--ink); border-color: var(--line-strong); }
+  .toggle-btn[aria-pressed="true"]{ background: var(--surface); color:var(--ink); }
+
+  .money-mode{ display:flex; gap:2px; }
+
+  svg.chart{ width:100%; height:auto; display:block; overflow:visible; font-family: var(--font-sans); }
+  .grid-line{ stroke: var(--line); stroke-width:1; shape-rendering: crispEdges; }
+  .axis-text{ fill: var(--ink-muted); font-size: 10.5px; }
+  .series-line{ fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+  .series-area{ opacity: 0.10; }
+  .end-dot{ stroke: var(--surface); stroke-width:2; }
+  .end-label{ font-size: 12px; font-weight:600; font-variant-numeric: tabular-nums; }
+  .peak-label{ font-size: 11px; fill: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .ref-line{ stroke: var(--critical); stroke-width:1.5; shape-rendering: crispEdges; }
+  .ref-label{ font-size: 10.5px; fill: var(--critical); font-weight:600; }
+
+  .crosshair{ stroke: var(--ink-muted); stroke-width:1; pointer-events:none; opacity:0; }
+  .hover-dot{ pointer-events:none; opacity:0; stroke: var(--surface); stroke-width:2; }
+  .hit-rect{ fill:transparent; cursor:crosshair; }
+
+  .tooltip{
+    position:absolute; pointer-events:none; background: var(--ink); color: var(--page);
+    font-size:12px; padding:7px 10px; border-radius:3px; line-height:1.5; opacity:0;
+    transform: translate(-50%,-100%); white-space:nowrap; z-index:5; transition: opacity 0.08s;
+  }
+  :root[data-theme="dark"] .tooltip, @media (prefers-color-scheme: dark){ .tooltip{ } }
+  .tooltip .t-row{ display:flex; align-items:center; gap:6px; }
+  .tooltip .t-dot{ width:7px; height:7px; border-radius:50%; }
+  .tooltip .t-age{ font-weight:600; margin-bottom:3px; }
+  .chart-wrap{ position:relative; }
+
+  table.data-table{ width:100%; border-collapse:collapse; font-size:12.5px; margin-top:10px; }
+  table.data-table th, table.data-table td{
+    text-align:right; padding:6px 8px; border-bottom:1px solid var(--line); font-variant-numeric: tabular-nums;
+  }
+  table.data-table th:first-child, table.data-table td:first-child{ text-align:left; font-variant-numeric: initial; }
+  table.data-table th{ color: var(--ink-muted); font-weight:600; text-transform:uppercase; font-size:10.5px; letter-spacing:0.04em; }
+  .table-scroll{ overflow-x:auto; max-height:340px; overflow-y:auto; border-top:1px solid var(--line); margin-top:8px; }
+
+  table.asset-table{ width:100%; border-collapse:collapse; font-size:12.5px; table-layout:fixed; }
+  table.asset-table th{
+    text-align:right; font-size:10px; text-transform:uppercase; letter-spacing:0.04em;
+    color:var(--ink-muted); font-weight:600; padding: 0 4px 6px; border-bottom:1px solid var(--line);
+  }
+  table.asset-table th:first-child{ text-align:left; }
+  table.asset-table td{ padding: 7px 4px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  table.asset-table td.asset-name{ font-size:12.5px; color:var(--ink); line-height:1.3; }
+  table.asset-table .asset-sub{ font-size:10.5px; color:var(--ink-muted); }
+  table.asset-table tbody tr:last-child td{ border-bottom:0; }
+  table.asset-table td input{
+    width:100%; border:1px solid var(--line); border-radius:2px; background: var(--surface);
+    color:var(--ink); font: 13px var(--font-sans); font-variant-numeric: tabular-nums;
+    padding: 6px 6px; text-align:right;
+  }
+  table.asset-table td input:focus{ outline: 2px solid var(--focus); outline-offset:0; border-color:transparent; }
+
+  .detail-card{ padding: 16px 18px 18px; }
+  .detail-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 14px 20px; }
+  .detail-item .k{ font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-muted); margin-bottom:4px; }
+  .detail-item .v{ font-size:16px; font-weight:600; font-variant-numeric: tabular-nums; }
+
+  footer.disclosure{
+    margin-top: 28px; padding-top:16px; border-top:1px solid var(--line);
+    font-size: 11.5px; color: var(--ink-muted); line-height:1.6; max-width: 84ch;
+  }
+
+  :focus-visible{ outline: 2px solid var(--focus); outline-offset:2px; }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+
+  /* ---------------- goal screen ---------------- */
+  .goal-screen{
+    min-height: 100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; position:relative; overflow:hidden; padding: 60px 20px;
+  }
+  .floaters{ position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:0; }
+  .floaters .dollar{
+    position:absolute; bottom:-10%; font-family: var(--font-display); font-weight:700;
+    color: var(--dc); opacity:0; animation-name: floatUp; animation-timing-function: linear; animation-iteration-count: infinite;
+    user-select:none;
+  }
+  .floaters .dollar.gold{ color: var(--warning); }
+  @keyframes floatUp{
+    0%{ transform: translateY(0) rotate(-6deg); opacity:0; }
+    8%{ opacity: .5; }
+    92%{ opacity:.32; }
+    100%{ transform: translateY(-125vh) rotate(10deg); opacity:0; }
+  }
+  .goal-content{ position:relative; z-index:1; max-width: 480px; }
+  .goal-leaf{
+    font-size: clamp(110px, 22vw, 200px); line-height:1; display:block;
+    filter: drop-shadow(0 20px 32px rgba(0,0,0,0.16));
+    animation: leafSway 6.5s ease-in-out infinite;
+  }
+  @keyframes leafSway{
+    0%,100%{ transform: rotate(-3deg) scale(1); }
+    50%{ transform: rotate(3deg) scale(1.03); }
+  }
+  .goal-title{
+    font-family: var(--font-display); font-weight:400; font-size: clamp(28px,4.4vw,42px);
+    margin: 8px 0 10px; text-wrap:balance;
+  }
+  .goal-sub{ color: var(--ink-2); font-size:14.5px; line-height:1.6; margin: 0 0 28px; }
+  .goal-input-unit{ width: min(260px, 78vw); margin: 0 auto 20px; }
+  .goal-input-unit input{ font-size:24px; font-weight:600; text-align:center; padding: 12px 8px; }
+  .goal-input-unit .unit{ font-size:14px; }
+  .goal-cta{
+    font: 600 15px var(--font-sans); background: var(--dc); color: var(--surface); border:0;
+    padding: 13px 30px; border-radius:3px; cursor:pointer; letter-spacing:0.01em;
+  }
+  .goal-cta:hover{ filter:brightness(1.08); }
+  .goal-return{
+    display:block; margin: 16px auto 0; font: 12px var(--font-sans); color: var(--ink-muted);
+    background:none; border:0; cursor:pointer; text-decoration: underline; text-underline-offset:2px;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .goal-leaf{ animation:none; }
+    .floaters .dollar{ animation:none; opacity:.22; }
+  }
+
+  /* ---------------- goal check (planner) ---------------- */
+  .goal-check{ padding: 16px 18px; }
+  .goal-check-row{ display:flex; align-items:flex-end; gap:20px; flex-wrap:wrap; margin-bottom:10px; }
+  .goal-check-item{ flex:1; min-width:120px; }
+  .goal-check-value{ font-size:24px; font-weight:600; letter-spacing:-0.01em; }
+  .goal-check-value span{ font-size:13px; font-weight:400; color: var(--ink-muted); margin-left:2px; }
+  .meter-track{ height:8px; border-radius:4px; background: var(--line); overflow:hidden; margin: 12px 0 2px; }
+  .meter-fill{ height:100%; border-radius:4px; transition: width 0.25s, background 0.25s; }
+  #goalCheckNote{ font-size:11.5px; color: var(--ink-muted); line-height:1.5; }
+</style>
+
+<div class="goal-screen" id="goalScreen">
+  <div class="floaters" id="floaters" aria-hidden="true"></div>
+  <div class="goal-content">
+    <span class="goal-leaf" role="img" aria-label="Maple leaf">🍁</span>
+    <h1 class="goal-title">What's your goal?</h1>
+    <p class="goal-sub">Set the monthly after-tax retirement income you're aiming for. We'll show what your DC, RRSP, TFSA, stocks and cash are actually on track to produce against it.</p>
+    <div class="field goal-input-unit">
+      <div class="input-unit">
+        <span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span>
+        <input id="goalMonthlyIncome" type="number" value="4000" min="0" step="100">
+        <span class="unit">/mo after-tax</span>
+      </div>
+    </div>
+    <button type="button" class="goal-cta" id="goalContinueBtn">See my plan →</button>
+  </div>
+</div>
+
+<div class="wrap" id="plannerScreen" style="display:none;">
+
+  <header class="masthead">
+    <div class="titles">
+      <h1>Wish I Had a DB Plan <span class="maple">🍁</span></h1>
+      <p>Compare the income your DC plan, RRSP, TFSA, stocks and cash are on track to produce against what a comparable Canadian defined benefit formula would have paid — for education, not advice.</p>
+    </div>
+    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+      <button type="button" class="toggle-btn" id="goToTaxBtn">Tax-optimized withdrawals →</button>
+      <div class="theme-toggle" role="group" aria-label="Theme">
+        <button type="button" data-theme-btn="light" aria-pressed="false">Light</button>
+        <button type="button" data-theme-btn="dark" aria-pressed="false">Dark</button>
+        <button type="button" data-theme-btn="system" aria-pressed="true">System</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- ===================== CONTROLS ===================== -->
+    <div class="controls">
+
+      <div class="card panel-card">
+        <h2>Personal &amp; salary</h2>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="currentAge">Current age</label>
+            <div class="input-unit"><input id="currentAge" type="number" value="35" min="18" max="74" step="1"><span class="unit">yrs</span></div>
+          </div>
+          <div class="field">
+            <label for="retireAge">Retirement age</label>
+            <div class="input-unit"><input id="retireAge" type="number" value="65" min="19" max="75" step="1"><span class="unit">yrs</span></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="planToAge">Plan income through age</label>
+          <div class="input-unit"><input id="planToAge" type="number" value="95" min="66" max="105" step="1"><span class="unit">yrs</span></div>
+          <div class="hint">Roughly a 50/50 survival chance to 90 for a healthy 65-year-old Canadian; 95 builds in a margin.</div>
+        </div>
+
+        <div class="field">
+          <label for="currentSalary">Current annual salary (gross)</label>
+          <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="currentSalary" type="number" value="90000" min="0" step="1000"></div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="salaryGrowth">Salary growth</label>
+            <div class="input-unit"><input id="salaryGrowth" type="number" value="2.5" min="0" max="15" step="0.1"><span class="unit">%/yr</span></div>
+          </div>
+          <div class="field">
+            <label for="inflation">Inflation</label>
+            <div class="input-unit"><input id="inflation" type="number" value="2.0" min="0" max="10" step="0.1"><span class="unit">%/yr</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card panel-card">
+        <h2>Household</h2>
+        <div class="checkbox-field">
+          <input type="checkbox" id="married">
+          <label for="married"><b>I'm married / have a spouse</b> — adds their own accounts and benefits, combined into your household totals.</label>
+        </div>
+        <div class="checkbox-field" id="incomeSplitField" style="display:none;">
+          <input type="checkbox" id="incomeSplit" checked>
+          <label for="incomeSplit"><b>Split retirement income with spouse</b> — approximates pension income splitting: on the tax page, combined taxable retirement income is pooled and divided evenly between you, which usually lowers combined tax when incomes are unequal.</label>
+        </div>
+      </div>
+
+      <div class="card panel-card" id="spouseCard1" style="display:none;">
+        <h2>Spouse<small>Age, DC plan &amp; government benefits</small></h2>
+
+        <div class="field">
+          <label for="spouseCurrentAge">Spouse's current age</label>
+          <div class="input-unit"><input id="spouseCurrentAge" type="number" value="35" min="18" max="74" step="1"><span class="unit">yrs</span></div>
+          <div class="hint">Retirement age and income horizon are shared with yours, above.</div>
+        </div>
+
+        <div class="field">
+          <label for="spouseSalary">Spouse's current annual salary (gross)</label>
+          <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="spouseSalary" type="number" value="70000" min="0" step="1000"></div>
+        </div>
+
+        <div class="field">
+          <label for="spouseDcBalance">Spouse's current DC balance</label>
+          <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="spouseDcBalance" type="number" value="30000" min="0" step="1000"></div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="spouseEeContrib">Employee contributes</label>
+            <div class="input-unit"><input id="spouseEeContrib" type="number" value="5" min="0" max="30" step="0.5"><span class="unit">%</span></div>
+          </div>
+          <div class="field">
+            <label for="spouseErContrib">Employer contributes</label>
+            <div class="input-unit"><input id="spouseErContrib" type="number" value="5" min="0" max="30" step="0.5"><span class="unit">%</span></div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="spouseDcReturn">Expected return</label>
+            <div class="input-unit"><input id="spouseDcReturn" type="number" value="5.5" min="0" max="15" step="0.1"><span class="unit">%/yr</span></div>
+          </div>
+          <div class="field">
+            <label for="spouseDcFee">Fees (MER)</label>
+            <div class="input-unit"><input id="spouseDcFee" type="number" value="0.5" min="0" max="5" step="0.05"><span class="unit">%/yr</span></div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="spouseCppAmount">Spouse's CPP at 65</label>
+            <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="spouseCppAmount" type="number" value="800" min="0" step="25"><span class="unit">/mo</span></div>
+          </div>
+          <div class="field">
+            <label for="spouseCppStart">CPP start age</label>
+            <select id="spouseCppStart" class="select-field"></select>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="spouseOasAmount">Spouse's OAS at 65</label>
+            <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="spouseOasAmount" type="number" value="700" min="0" step="25"><span class="unit">/mo</span></div>
+          </div>
+          <div class="field">
+            <label for="spouseOasStart">OAS start age</label>
+            <select id="spouseOasStart" class="select-field"></select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card panel-card" id="spouseCard2" style="display:none;">
+        <h2>Spouse — other savings<small>Combined into household totals</small></h2>
+        <div class="table-scroll" style="max-height:none; border-top:0; margin-top:0;">
+          <table class="asset-table">
+            <thead>
+              <tr><th style="text-align:left;">Account</th><th>Balance $</th><th>Add $/yr</th><th>Return %</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="asset-name">TFSA</td>
+                <td><input id="spouseTfsaBalance" type="number" value="12000" min="0" step="500"></td>
+                <td><input id="spouseTfsaContrib" type="number" value="2000" min="0" step="250"></td>
+                <td><input id="spouseTfsaReturn" type="number" value="6.0" min="0" max="15" step="0.1"></td>
+              </tr>
+              <tr>
+                <td class="asset-name">RRSP</td>
+                <td><input id="spouseRrspBalance" type="number" value="15000" min="0" step="500"></td>
+                <td><input id="spouseRrspContrib" type="number" value="1500" min="0" step="250"></td>
+                <td><input id="spouseRrspReturn" type="number" value="5.5" min="0" max="15" step="0.1"></td>
+              </tr>
+              <tr>
+                <td class="asset-name">Stocks<br><span class="asset-sub">non-registered</span></td>
+                <td><input id="spouseStockBalance" type="number" value="5000" min="0" step="500"></td>
+                <td><input id="spouseStockContrib" type="number" value="500" min="0" step="250"></td>
+                <td><input id="spouseStockReturn" type="number" value="6.0" min="0" max="15" step="0.1"></td>
+              </tr>
+              <tr>
+                <td class="asset-name">Cash</td>
+                <td><input id="spouseCashBalance" type="number" value="6000" min="0" step="500"></td>
+                <td><input id="spouseCashContrib" type="number" value="400" min="0" step="250"></td>
+                <td><input id="spouseCashReturn" type="number" value="2.5" min="0" max="15" step="0.1"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card panel-card">
+        <h2>Defined contribution plan<small>Your actual DC account</small></h2>
+
+        <div class="field">
+          <label for="dcBalance">Current DC balance</label>
+          <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="dcBalance" type="number" value="45000" min="0" step="1000"></div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="eeContrib">Employee contributes</label>
+            <div class="input-unit"><input id="eeContrib" type="number" value="5" min="0" max="30" step="0.5"><span class="unit">%</span></div>
+          </div>
+          <div class="field">
+            <label for="erContrib">Employer contributes</label>
+            <div class="input-unit"><input id="erContrib" type="number" value="5" min="0" max="30" step="0.5"><span class="unit">%</span></div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="dcReturn">Expected return</label>
+            <div class="input-unit"><input id="dcReturn" type="number" value="5.5" min="0" max="15" step="0.1"><span class="unit">%/yr</span></div>
+          </div>
+          <div class="field">
+            <label for="dcFee">Fees (MER)</label>
+            <div class="input-unit"><input id="dcFee" type="number" value="0.5" min="0" max="5" step="0.05"><span class="unit">%/yr</span></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="card panel-card">
+        <h2>Other savings &amp; investments<small>Combined with your DC balance for a total picture</small></h2>
+
+        <div class="table-scroll" style="max-height:none; border-top:0; margin-top:0;">
+          <table class="asset-table">
+            <thead>
+              <tr><th style="text-align:left;">Account</th><th>Balance $</th><th>Add $/yr</th><th>Return %</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="asset-name">TFSA</td>
+                <td><input id="tfsaBalance" type="number" value="15000" min="0" step="500"></td>
+                <td><input id="tfsaContrib" type="number" value="3000" min="0" step="250"></td>
+                <td><input id="tfsaReturn" type="number" value="6.0" min="0" max="15" step="0.1"></td>
+              </tr>
+              <tr>
+                <td class="asset-name">RRSP</td>
+                <td><input id="rrspBalance" type="number" value="20000" min="0" step="500"></td>
+                <td><input id="rrspContrib" type="number" value="2000" min="0" step="250"></td>
+                <td><input id="rrspReturn" type="number" value="5.5" min="0" max="15" step="0.1"></td>
+              </tr>
+              <tr>
+                <td class="asset-name">Stocks<br><span class="asset-sub">non-registered</span></td>
+                <td><input id="stockBalance" type="number" value="10000" min="0" step="500"></td>
+                <td><input id="stockContrib" type="number" value="1000" min="0" step="250"></td>
+                <td><input id="stockReturn" type="number" value="6.0" min="0" max="15" step="0.1"></td>
+              </tr>
+              <tr>
+                <td class="asset-name">Cash</td>
+                <td><input id="cashBalance" type="number" value="8000" min="0" step="500"></td>
+                <td><input id="cashContrib" type="number" value="500" min="0" step="250"></td>
+                <td><input id="cashReturn" type="number" value="2.5" min="0" max="15" step="0.1"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="hint" style="margin-top:8px;">Balances and returns in dollars and %/yr; annual add grows with salary growth, same as your DC contributions. RRSP shares the drawdown method below with your DC balance; TFSA, stocks and cash always draw down at the withdrawal rate below. Non-registered growth ignores capital-gains tax.</div>
+      </div>
+
+      <div class="card panel-card">
+        <h2>Government benefits<small>CPP &amp; OAS, added to both sides of the comparison</small></h2>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="cppAmount">Your CPP at 65</label>
+            <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="cppAmount" type="number" value="950" min="0" step="25"><span class="unit">/mo</span></div>
+          </div>
+          <div class="field">
+            <label for="cppStart">CPP start age</label>
+            <select id="cppStart" class="select-field"></select>
+          </div>
+        </div>
+        <div class="hint">CPP is reduced 0.6%/month for each month started before 65 (down to 60), and increased 0.7%/month for each month deferred past 65 (up to 70).</div>
+
+        <div class="field-row" style="margin-top:12px;">
+          <div class="field">
+            <label for="oasAmount">Your OAS at 65</label>
+            <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="oasAmount" type="number" value="700" min="0" step="25"><span class="unit">/mo</span></div>
+          </div>
+          <div class="field">
+            <label for="oasStart">OAS start age</label>
+            <select id="oasStart" class="select-field"></select>
+          </div>
+        </div>
+        <div class="hint">OAS has no early option before 65, and increases 0.6%/month for each month deferred past 65 (up to 70). Both CPP and OAS are modeled as indexed to inflation once they start, and are added equally to your savings income and the theoretical DB income, since you'd receive them under either plan type. If you're also using the CPP bridge above, consider reducing or disabling it to avoid double-counting real CPP.</div>
+      </div>
+
+      <div class="card panel-card">
+        <h2>Retirement drawdown<small>How your DC, RRSP, TFSA, stocks &amp; cash convert to income</small></h2>
+
+        <div class="field">
+          <label for="decumMethod">Method for DC &amp; RRSP</label>
+          <select id="decumMethod" class="select-field">
+            <option value="fixed">Sustainable withdrawal rate</option>
+            <option value="rrif">CRA RRIF minimum withdrawal</option>
+          </select>
+        </div>
+
+        <div class="field" id="withdrawalRateField">
+          <label for="withdrawalRate">Withdrawal rate</label>
+          <div class="input-unit"><input id="withdrawalRate" type="number" value="4.5" min="1" max="10" step="0.1"><span class="unit">%/yr</span></div>
+          <div class="hint">Applied to each account's balance at retirement to set year-one income, then held level in real (inflation-adjusted) terms. Always used for TFSA, stocks and cash; used for DC &amp; RRSP unless RRIF minimum is selected above.</div>
+        </div>
+        <div class="field hint" id="rrifHint" style="display:none;">
+          For DC &amp; RRSP: withdraws the CRA-prescribed minimum each year — 1/(90&minus;age) before 71, then a rising schedule from 5.28% at 71 to 20% at 95+. That income is not held level; it moves with the account and the schedule. TFSA, stocks and cash still use the withdrawal rate above.
+        </div>
+      </div>
+
+      <div class="card panel-card">
+        <h2>Theoretical DB plan<small>A hypothetical comparison, not a real plan</small></h2>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="serviceToDate">Credited service so far</label>
+            <div class="input-unit"><input id="serviceToDate" type="number" value="8" min="0" max="50" step="1"><span class="unit">yrs</span></div>
+          </div>
+          <div class="field">
+            <label for="accrualRate">Accrual rate</label>
+            <div class="input-unit"><input id="accrualRate" type="number" value="2.0" min="0.5" max="3" step="0.05"><span class="unit">%</span></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="avgYears">Averaging period</label>
+          <div class="input-unit"><input id="avgYears" type="number" value="5" min="1" max="10" step="1"><span class="unit">best yrs</span></div>
+          <div class="hint">Pension = accrual rate × years of service × average salary over the final N years.</div>
+        </div>
+
+        <div class="checkbox-field">
+          <input type="checkbox" id="dbIndexed">
+          <label for="dbIndexed"><b>Fully indexed to inflation</b> — many Canadian DB plans offer partial or no guaranteed indexing; leave unchecked for a conservative flat-nominal pension.</label>
+        </div>
+
+        <div class="checkbox-field">
+          <input type="checkbox" id="cppBridge" checked>
+          <label for="cppBridge"><b>CPP bridge benefit</b> — a temporary top-up paid from retirement until age 65, common in public-sector DB plans.</label>
+        </div>
+        <div class="field" id="bridgeAmountField">
+          <label for="bridgeAmount">Estimated bridge amount</label>
+          <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="bridgeAmount" type="number" value="7500" min="0" step="250"></div>
+        </div>
+      </div>
+
+      <div class="reset-row"><button type="button" id="resetBtn">Reset to defaults</button></div>
+    </div>
+
+    <!-- ===================== RESULTS ===================== -->
+    <div class="results">
+
+      <div class="compare-row">
+        <div class="card stat-tile dc">
+          <div class="swatch">Your savings, year one</div>
+          <div class="value" id="dcHero">$0</div>
+          <div class="sub" id="dcHeroSub">estimated annual income</div>
+        </div>
+        <div class="card stat-tile db">
+          <div class="swatch">Theoretical DB, year one</div>
+          <div class="value" id="dbHero">$0</div>
+          <div class="sub" id="dbHeroSub">formula pension income</div>
+        </div>
+      </div>
+
+      <div class="card goal-check">
+        <div class="goal-check-row">
+          <div class="goal-check-item">
+            <div class="eyebrow">Your goal (after-tax)</div>
+            <div class="goal-check-value" id="goalCheckGoal">$0<span>/mo</span></div>
+          </div>
+          <div class="goal-check-item">
+            <div class="eyebrow">Actual, year one (after-tax)</div>
+            <div class="goal-check-value" id="goalCheckActual">$0<span>/mo</span></div>
+          </div>
+          <button type="button" class="toggle-btn" id="editGoalBtn">Edit goal</button>
+        </div>
+        <div class="meter-track"><div class="meter-fill" id="goalMeterFill" style="width:0%;"></div></div>
+        <div id="goalCheckNote" class="hint" style="margin-top:6px;"></div>
+      </div>
+
+      <div class="card delta-strip" id="deltaStrip"></div>
+
+      <div class="card">
+        <div id="statusChipWrap"></div>
+      </div>
+
+      <div class="card chart-card">
+        <div class="chart-head">
+          <div>
+            <h2 style="border:0;padding:0;margin:0 0 4px;">Annual retirement income, by age</h2>
+            <div class="legend">
+              <span class="legend-item"><span class="sw" style="background:var(--dc)"></span>Your savings (est. income)</span>
+              <span class="legend-item"><span class="sw" style="background:var(--db)"></span>DB (theoretical)</span>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; align-items:flex-start;">
+            <div class="money-mode">
+              <button class="toggle-btn" data-mode="nominal" aria-pressed="true">Nominal $</button>
+              <button class="toggle-btn" data-mode="real" aria-pressed="false">Today's $</button>
+            </div>
+            <button class="toggle-btn" id="tableToggle1" aria-pressed="false">View as table</button>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <svg class="chart" id="chartIncome" viewBox="0 0 640 300" preserveAspectRatio="xMidYMid meet"></svg>
+          <div class="tooltip" id="tooltip1"></div>
+        </div>
+        <div class="table-scroll" id="table1" style="display:none;"></div>
+      </div>
+
+      <div class="card chart-card">
+        <div class="chart-head">
+          <div>
+            <h2 style="border:0;padding:0;margin:0 0 4px;">Total savings balance over time</h2>
+            <div class="legend"><span class="legend-item area"><span class="sw" style="background:var(--dc)"></span>DC + RRSP + TFSA + stocks + cash (nominal $)</span></div>
+          </div>
+          <button class="toggle-btn" id="tableToggle2" aria-pressed="false">View as table</button>
+        </div>
+        <div class="chart-wrap">
+          <svg class="chart" id="chartBalance" viewBox="0 0 640 300" preserveAspectRatio="xMidYMid meet"></svg>
+          <div class="tooltip" id="tooltip2"></div>
+        </div>
+        <div class="table-scroll" id="table2" style="display:none;"></div>
+      </div>
+
+      <div class="card detail-card">
+        <h2>Key figures at retirement</h2>
+        <div class="detail-grid" id="detailGrid"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer class="disclosure">
+    <strong>This is a simplified educational model, not financial or actuarial advice.</strong>
+    The DC-vs-DB comparison above is pre-tax throughout. Only the goal check is after-tax: it applies a quick combined
+    federal + provincial estimate (splitting income with a spouse if enabled) to year-one taxable income, using the
+    province set on the tax-optimized withdrawal page (Ontario by default) — it ignores OAS clawback and, when married
+    without splitting, taxes both incomes as if pooled rather than giving each spouse their own bracket. See the
+    tax-optimized withdrawal page for a fuller year-by-year model. Otherwise this page ignores income tax on withdrawals,
+    capital-gains treatment on non-registered stock, RRSP/TFSA contribution-room limits, and early-retirement reductions.
+    DC and RRSP balances (and a spouse's, if married) are combined into one registered pool for retirement drawdown, using
+    a blended return — TFSA, stocks and cash form a second pool that always draws down at the chosen withdrawal rate,
+    since CRA does not mandate minimum withdrawals on them. CPP and OAS are estimated from the amounts you enter (not
+    calculated from a contribution history), actuarially adjusted for your chosen start age, and added equally to both the
+    savings and theoretical-DB income lines since you'd receive them regardless of pension type — OAS clawback is not
+    applied here. If married, retirement age and income horizon are assumed shared between spouses, and the theoretical DB
+    remains yours alone. The theoretical DB figure applies a generic Canadian public-sector-style formula (accrual rate ×
+    years of service × final average earnings) purely as a comparison yardstick — it is not a quote from, or model of, any
+    actual pension plan. Contribution and return assumptions compound every year without accounting for market volatility.
+    Speak with a qualified financial planner before making retirement decisions.
+  </footer>
+</div>
+
+<div class="wrap" id="taxScreen" style="display:none;">
+
+  <header class="masthead">
+    <div class="titles">
+      <h1>Tax-optimized withdrawals <span class="maple">🍁</span></h1>
+      <p>A bracket-filling withdrawal order from retirement to age 71, then CRA RRIF minimums from 71 on — grossed up from taxable sources to hit your after-tax income goal while keeping combined tax low.</p>
+    </div>
+    <div style="display:flex; gap:8px; flex-shrink:0;">
+      <button type="button" class="toggle-btn" id="taxHomeBtn" title="Edit your monthly goal" aria-label="Edit your monthly goal">🍁 Edit goal</button>
+      <button type="button" class="toggle-btn" id="backToPlannerBtn">← Back to planner</button>
+    </div>
+  </header>
+
+  <div class="card panel-card" style="max-width:420px; margin-bottom:16px;">
+    <h2>Province of residence</h2>
+    <div class="field">
+      <label for="province">Used for combined federal + provincial tax brackets</label>
+      <select id="province" class="select-field"></select>
+      <div class="hint">Tax brackets, basic personal amounts and the OAS clawback threshold are approximate ~2026 figures for education only — verify current rates with the CRA and your province before relying on them.</div>
+    </div>
+  </div>
+
+  <div class="compare-row" style="margin-bottom:16px;">
+    <div class="card stat-tile dc">
+      <div class="swatch">Total tax, over retirement</div>
+      <div class="value" id="taxTotalHero">$0</div>
+      <div class="sub" id="taxTotalSub">including OAS clawback</div>
+    </div>
+    <div class="card stat-tile db">
+      <div class="swatch">Effective tax rate</div>
+      <div class="value" id="taxRateHero">0%</div>
+      <div class="sub">of gross retirement income, blended</div>
+    </div>
+  </div>
+
+  <div class="card chart-card" style="margin-bottom:16px;">
+    <div class="chart-head">
+      <div>
+        <h2 style="border:0;padding:0;margin:0 0 4px;">Gross vs. after-tax income, by age</h2>
+        <div class="legend">
+          <span class="legend-item"><span class="sw" style="background:var(--db)"></span>Gross income</span>
+          <span class="legend-item"><span class="sw" style="background:var(--dc)"></span>After-tax income</span>
+        </div>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <svg class="chart" id="chartTax" viewBox="0 0 640 300" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="tooltip" id="tooltipTax"></div>
+    </div>
+  </div>
+
+  <div class="card chart-card" style="margin-bottom:16px;">
+    <h2 style="border:0;padding:0;margin:0 0 10px;">Withdrawal order by year</h2>
+    <div class="table-scroll" style="max-height:460px;">
+      <table class="data-table" id="taxTable"></table>
+    </div>
+  </div>
+
+  <footer class="disclosure">
+    <strong>This withdrawal order is a simplified rule of thumb, not a tax optimization or professional advice.</strong>
+    Your goal (set on the planner page) is treated as an <strong>after-tax</strong> target. Each year draws mandatory
+    income first (CPP, OAS, DB, and RRIF minimums from age 71), then tops up any after-tax shortfall from RRSP/RRIF —
+    grossed up by the marginal rate at each step so the after-tax result lands on target, while staying within the
+    current combined federal+provincial bracket — then cash, then non-registered stock, then TFSA last (both tax-free
+    here, so no grossing needed). The grossing-up math is exact within one bracket step and approximate if a single
+    year's shortfall spans more than two brackets, and it does not account for OAS clawback when sizing withdrawals
+    (clawback is still applied to the final tax figure, so after-tax results can land slightly under goal in
+    clawback-affected ranges). Non-registered and cash withdrawals are treated as tax-free principal withdrawals here —
+    in reality, capital gains and dividends in a non-registered account are taxable, which this page does not model.
+    The basic personal amount is modeled as a simple deduction rather than the real credit mechanism, which affects
+    precision — Québec also has its own federal-tax abatement not modeled here. This is a heuristic, not a true
+    optimizer: an actual optimizer could sequence withdrawals differently to reduce lifetime tax further. Speak with a
+    qualified tax professional or financial planner before making withdrawal decisions.
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var $ = function(id){ return document.getElementById(id); };
+  var fmtMoney0 = new Intl.NumberFormat('en-CA', { style:'currency', currency:'CAD', maximumFractionDigits:0 });
+  var fmtNum0 = new Intl.NumberFormat('en-CA', { maximumFractionDigits:0 });
+
+  /* ---------------- theme ---------------- */
+  var themeBtns = document.querySelectorAll('[data-theme-btn]');
+  function setTheme(mode){
+    if(mode === 'system'){ document.documentElement.removeAttribute('data-theme'); }
+    else { document.documentElement.setAttribute('data-theme', mode); }
+    themeBtns.forEach(function(b){ b.setAttribute('aria-pressed', String(b.dataset.themeBtn === mode)); });
+    try{ localStorage.setItem('rp-theme', mode); }catch(e){}
+  }
+  themeBtns.forEach(function(b){ b.addEventListener('click', function(){ setTheme(b.dataset.themeBtn); }); });
+  (function(){ var saved; try{ saved = localStorage.getItem('rp-theme'); }catch(e){}
+    setTheme(saved || 'system'); })();
+
+  /* ---------------- goal screen ---------------- */
+  (function(){
+    var savedGoal; try{ savedGoal = localStorage.getItem('rp-goal'); }catch(e){}
+    if(savedGoal) $('goalMonthlyIncome').value = savedGoal;
+  })();
+
+  (function(){
+    var floaters = $('floaters');
+    var symbols = ['$','$','$','$','$'];
+    var n = 16;
+    for(var i=0;i<n;i++){
+      var span = document.createElement('span');
+      span.className = 'dollar' + (i % 3 === 0 ? ' gold' : '');
+      span.textContent = symbols[i % symbols.length];
+      var left = Math.round((i / n) * 100 + (Math.random()*8-4));
+      var size = Math.round(16 + Math.random()*26);
+      var duration = (9 + Math.random()*7).toFixed(1);
+      var delay = (Math.random()*-14).toFixed(1);
+      span.style.left = left + '%';
+      span.style.fontSize = size + 'px';
+      span.style.animationDuration = duration + 's';
+      span.style.animationDelay = delay + 's';
+      floaters.appendChild(span);
+    }
+  })();
+
+  function hideAllScreens(){
+    $('goalScreen').style.display = 'none';
+    $('plannerScreen').style.display = 'none';
+    $('taxScreen').style.display = 'none';
+  }
+  function showPlanner(){
+    var goalVal = $('goalMonthlyIncome').value;
+    try{ localStorage.setItem('rp-goal', goalVal); }catch(e){}
+    hideAllScreens();
+    $('plannerScreen').style.display = '';
+    render();
+  }
+  function showGoalScreen(){
+    hideAllScreens();
+    $('goalScreen').style.display = '';
+  }
+  function showTaxPage(){
+    hideAllScreens();
+    $('taxScreen').style.display = '';
+    renderTaxPage();
+  }
+  $('goalContinueBtn').addEventListener('click', showPlanner);
+  $('goalMonthlyIncome').addEventListener('keydown', function(e){ if(e.key==='Enter') showPlanner(); });
+  $('editGoalBtn').addEventListener('click', showGoalScreen);
+  $('goToTaxBtn').addEventListener('click', showTaxPage);
+  $('backToPlannerBtn').addEventListener('click', showPlanner);
+  $('taxHomeBtn').addEventListener('click', showGoalScreen);
+
+  /* ---------------- CPP/OAS start-age selects ---------------- */
+  function fillAgeSelect(id, min, max, selected){
+    var sel = $(id), html = '';
+    for(var a=min;a<=max;a++){ html += '<option value="'+a+'"'+(a===selected?' selected':'')+'>'+a+'</option>'; }
+    sel.innerHTML = html;
+  }
+  fillAgeSelect('cppStart', 60, 70, 65);
+  fillAgeSelect('oasStart', 65, 70, 65);
+  fillAgeSelect('spouseCppStart', 60, 70, 65);
+  fillAgeSelect('spouseOasStart', 65, 70, 65);
+
+  /* ---------------- married / spouse ---------------- */
+  function syncMarried(){
+    var on = $('married').checked;
+    $('spouseCard1').style.display = on ? '' : 'none';
+    $('spouseCard2').style.display = on ? '' : 'none';
+    $('incomeSplitField').style.display = on ? '' : 'none';
+  }
+  $('married').addEventListener('change', function(){ syncMarried(); render(); });
+
+  /* ---------------- inputs ---------------- */
+  var ids = ["currentAge","retireAge","planToAge","currentSalary","salaryGrowth","inflation",
+    "dcBalance","eeContrib","erContrib","dcReturn","dcFee","withdrawalRate",
+    "tfsaBalance","tfsaContrib","tfsaReturn","rrspBalance","rrspContrib","rrspReturn",
+    "stockBalance","stockContrib","stockReturn","cashBalance","cashContrib","cashReturn",
+    "serviceToDate","accrualRate","avgYears","bridgeAmount",
+    "cppAmount","cppStart","oasAmount","oasStart",
+    "spouseCurrentAge","spouseSalary","spouseDcBalance","spouseEeContrib","spouseErContrib","spouseDcReturn","spouseDcFee",
+    "spouseCppAmount","spouseCppStart","spouseOasAmount","spouseOasStart",
+    "spouseTfsaBalance","spouseTfsaContrib","spouseTfsaReturn","spouseRrspBalance","spouseRrspContrib","spouseRrspReturn",
+    "spouseStockBalance","spouseStockContrib","spouseStockReturn","spouseCashBalance","spouseCashContrib","spouseCashReturn"];
+  var defaults = {};
+  ids.forEach(function(id){ defaults[id] = $(id).value; });
+  var checkboxDefaults = { dbIndexed:false, cppBridge:true, married:false, incomeSplit:true };
+
+  var moneyMode = 'nominal';
+  document.querySelectorAll('.money-mode .toggle-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      moneyMode = btn.dataset.mode;
+      document.querySelectorAll('.money-mode .toggle-btn').forEach(function(b){ b.setAttribute('aria-pressed', String(b===btn)); });
+      render();
+    });
+  });
+
+  $('cppBridge').addEventListener('change', function(){
+    $('bridgeAmountField').style.display = $('cppBridge').checked ? '' : 'none';
+    render();
+  });
+
+  function syncDecumFields(){
+    var isRrif = $('decumMethod').value === 'rrif';
+    $('withdrawalRateField').style.display = isRrif ? 'none' : '';
+    $('rrifHint').style.display = isRrif ? '' : 'none';
+  }
+  $('decumMethod').addEventListener('change', function(){ syncDecumFields(); render(); });
+
+  $('resetBtn').addEventListener('click', function(){
+    ids.forEach(function(id){ $(id).value = defaults[id]; });
+    $('dbIndexed').checked = checkboxDefaults.dbIndexed;
+    $('cppBridge').checked = checkboxDefaults.cppBridge;
+    $('married').checked = checkboxDefaults.married;
+    $('incomeSplit').checked = checkboxDefaults.incomeSplit;
+    $('bridgeAmountField').style.display = '';
+    $('decumMethod').value = 'fixed';
+    syncDecumFields();
+    syncMarried();
+    render();
+  });
+
+  document.querySelectorAll('input').forEach(function(inp){
+    inp.addEventListener('input', render);
+  });
+  ['cppStart','oasStart','spouseCppStart','spouseOasStart'].forEach(function(id){
+    $(id).addEventListener('change', render);
+  });
+
+  var tableToggle1 = $('tableToggle1'), tableToggle2 = $('tableToggle2');
+  tableToggle1.addEventListener('click', function(){
+    var showing = tableToggle1.getAttribute('aria-pressed') === 'true';
+    tableToggle1.setAttribute('aria-pressed', String(!showing));
+    $('table1').style.display = showing ? 'none' : '';
+  });
+  tableToggle2.addEventListener('click', function(){
+    var showing = tableToggle2.getAttribute('aria-pressed') === 'true';
+    tableToggle2.setAttribute('aria-pressed', String(!showing));
+    $('table2').style.display = showing ? 'none' : '';
+  });
+
+  /* ---------------- model ---------------- */
+  function num(id){ var v = parseFloat($(id).value); return isFinite(v) ? v : 0; }
+
+  var RRIF_TABLE = {71:0.0528,72:0.0540,73:0.0553,74:0.0567,75:0.0582,76:0.0598,77:0.0617,78:0.0636,79:0.0658,80:0.0682,81:0.0708,82:0.0738,83:0.0771,84:0.0808,85:0.0851,86:0.0899,87:0.0955,88:0.1021,89:0.1099,90:0.1192,91:0.1306,92:0.1449,93:0.1634,94:0.1879};
+  function rrifFactor(age){
+    if(age>=95) return 0.20;
+    if(age>=71) return RRIF_TABLE[age];
+    if(age>0 && age<71) return 1/(90-age);
+    return 0.0528;
+  }
+
+  function cppAnnualAtStart(monthlyAt65, startAge){
+    var diffMonths = (startAge - 65) * 12;
+    var factor = diffMonths >= 0 ? 1 + 0.007*diffMonths : 1 + 0.006*diffMonths;
+    return Math.max(monthlyAt65 * factor, 0) * 12;
+  }
+  function oasAnnualAtStart(monthlyAt65, startAge){
+    var diffMonths = Math.max(0, startAge - 65) * 12;
+    return Math.max(monthlyAt65 * (1 + 0.006*diffMonths), 0) * 12;
+  }
+
+  /* ---------------- tax brackets (approximate, illustrative ~2026 figures — verify against CRA/provincial sources) ---------------- */
+  var TAX_DATA = {
+    federal: { bpa: 15700, brackets: [[58523,.14],[117045,.205],[181440,.26],[258482,.29],[Infinity,.33]] },
+    provinces: {
+      ON: { name:'Ontario', bpa: 12750, brackets: [[52900,.0505],[105775,.0915],[150000,.1116],[220000,.1216],[Infinity,.1316]] },
+      BC: { name:'British Columbia', bpa: 12750, brackets: [[49700,.0506],[99400,.077],[114000,.105],[138000,.1229],[188000,.147],[262000,.168],[Infinity,.205]] },
+      AB: { name:'Alberta', bpa: 22323, brackets: [[148269,.10],[177922,.12],[237230,.13],[355845,.14],[Infinity,.15]] },
+      MB: { name:'Manitoba', bpa: 15780, brackets: [[47000,.108],[100000,.1275],[Infinity,.174]] },
+      SK: { name:'Saskatchewan', bpa: 18991, brackets: [[53000,.105],[151978,.125],[Infinity,.145]] },
+      QC: { name:'Quebec', bpa: 18571, brackets: [[53255,.14],[106495,.19],[129590,.24],[Infinity,.2575]] },
+      NB: { name:'New Brunswick', bpa: 13396, brackets: [[51306,.094],[102614,.14],[190060,.16],[Infinity,.195]] },
+      NS: { name:'Nova Scotia', bpa: 11744, brackets: [[30507,.0879],[61015,.1495],[95883,.1667],[154650,.175],[Infinity,.21]] },
+      PE: { name:'Prince Edward Island', bpa: 14250, brackets: [[33500,.095],[67000,.1347],[Infinity,.166]] },
+      NL: { name:'Newfoundland & Labrador', bpa: 11067, brackets: [[44192,.087],[88382,.145],[157792,.158],[220910,.178],[282214,.198],[564429,.218],[Infinity,.227]] },
+      YT: { name:'Yukon', bpa: 15700, brackets: [[58523,.064],[117045,.09],[181440,.109],[500000,.128],[Infinity,.15]] },
+      NT: { name:'Northwest Territories', bpa: 17373, brackets: [[50597,.059],[101198,.086],[164525,.122],[Infinity,.1405]] },
+      NU: { name:'Nunavut', bpa: 19274, brackets: [[53268,.04],[106537,.07],[173205,.09],[Infinity,.115]] }
+    },
+    oasClawbackThreshold: 93454,
+    oasClawbackRate: 0.15
+  };
+  var PROVINCE_ORDER = ['ON','BC','AB','MB','SK','QC','NB','NS','PE','NL','YT','NT','NU'];
+
+  function bracketCeilingAt(income, brackets){
+    for(var i=0;i<brackets.length;i++){ if(income <= brackets[i][0]) return brackets[i][0]; }
+    return Infinity;
+  }
+  function taxOwed(income, bpa, brackets){
+    var taxable = Math.max(income - bpa, 0);
+    var tax = 0, prev = 0;
+    for(var i=0;i<brackets.length;i++){
+      var thresh = brackets[i][0], rate = brackets[i][1];
+      if(taxable > prev){ tax += (Math.min(taxable, thresh) - prev) * rate; }
+      prev = thresh;
+      if(taxable <= thresh) break;
+    }
+    return tax;
+  }
+  function combinedTax(income, provinceCode){
+    var prov = TAX_DATA.provinces[provinceCode];
+    return taxOwed(income, TAX_DATA.federal.bpa, TAX_DATA.federal.brackets) + taxOwed(income, prov.bpa, prov.brackets);
+  }
+  function combinedBracketCeiling(income, provinceCode){
+    var prov = TAX_DATA.provinces[provinceCode];
+    return Math.min(bracketCeilingAt(income, TAX_DATA.federal.brackets), bracketCeilingAt(income, prov.brackets));
+  }
+  function marginalRateAt(income, brackets){
+    for(var i=0;i<brackets.length;i++){ if(income <= brackets[i][0]) return brackets[i][1]; }
+    return brackets[brackets.length-1][1];
+  }
+  function combinedMarginalRate(income, provinceCode){
+    var prov = TAX_DATA.provinces[provinceCode];
+    return marginalRateAt(income, TAX_DATA.federal.brackets) + marginalRateAt(income, prov.brackets);
+  }
+  function oasClawback(income, oasReceived){
+    return Math.min(oasReceived, Math.max(0, income - TAX_DATA.oasClawbackThreshold) * TAX_DATA.oasClawbackRate);
+  }
+  function getSelectedProvince(){
+    var saved; try{ saved = localStorage.getItem('rp-province'); }catch(e){}
+    return (saved && TAX_DATA.provinces[saved]) ? saved : 'ON';
+  }
+  /* Quick single-year after-tax estimate for the goal check (not the full year-by-year
+     engine on the tax page): taxes the taxable portion of year-one income at the
+     selected province's combined brackets, splitting it with a spouse if income-split
+     is on. Ignores OAS clawback and per-spouse BPAs when not splitting — see the
+     tax-optimized withdrawal page for a fuller model. */
+  function estimateAfterTaxYear1(m){
+    if(!m.decumulation.length) return 0;
+    var row = m.decumulation[0];
+    var province = getSelectedProvince();
+    var taxable = row.taxableIncomeNominal, tax;
+    if(m.married && m.incomeSplit){ tax = combinedTax(taxable/2, province)*2; }
+    else { tax = combinedTax(taxable, province); }
+    return taxable - tax + row.nonTaxableIncomeNominal;
+  }
+
+  function computeModel(){
+    var currentAge = Math.round(num('currentAge'));
+    var retireAge = Math.max(Math.round(num('retireAge')), currentAge+1);
+    var planToAge = Math.max(Math.round(num('planToAge')), retireAge+1);
+    var currentSalary = Math.max(num('currentSalary'), 0);
+    var salaryGrowth = num('salaryGrowth')/100;
+    var inflation = num('inflation')/100;
+    var dcBalance = Math.max(num('dcBalance'), 0);
+    var eeContrib = num('eeContrib')/100;
+    var erContrib = num('erContrib')/100;
+    var dcReturn = num('dcReturn')/100;
+    var dcFee = num('dcFee')/100;
+    var dcNetReturn = Math.max(dcReturn - dcFee, -0.99);
+    var withdrawalRate = num('withdrawalRate')/100;
+    var decumMethod = $('decumMethod').value;
+    var serviceToDate = Math.max(num('serviceToDate'), 0);
+    var accrualRate = num('accrualRate')/100;
+    var avgYears = Math.max(Math.round(num('avgYears')), 1);
+    var dbIndexed = $('dbIndexed').checked;
+    var cppBridge = $('cppBridge').checked;
+    var bridgeAmount = cppBridge ? Math.max(num('bridgeAmount'), 0) : 0;
+
+    var married = $('married').checked;
+    var incomeSplit = married && $('incomeSplit').checked;
+
+    var tfsaReturn = num('tfsaReturn')/100, rrspReturn = num('rrspReturn')/100,
+        stockReturn = num('stockReturn')/100, cashReturn = num('cashReturn')/100;
+    var assetDefs = [
+      { key:'tfsa', balance: Math.max(num('tfsaBalance'),0), contrib: Math.max(num('tfsaContrib'),0), ret: tfsaReturn },
+      { key:'rrsp', balance: Math.max(num('rrspBalance'),0), contrib: Math.max(num('rrspContrib'),0), ret: rrspReturn },
+      { key:'stock', balance: Math.max(num('stockBalance'),0), contrib: Math.max(num('stockContrib'),0), ret: stockReturn },
+      { key:'cash', balance: Math.max(num('cashBalance'),0), contrib: Math.max(num('cashContrib'),0), ret: cashReturn }
+    ];
+    var assetBal = {};
+    assetDefs.forEach(function(a){ assetBal[a.key] = a.balance; });
+
+    var spouseCurrentAge = Math.max(num('spouseCurrentAge'), 0);
+    var spouseSalary = Math.max(num('spouseSalary'), 0);
+    var spouseDcBal = Math.max(num('spouseDcBalance'), 0);
+    var spouseEeContrib = num('spouseEeContrib')/100, spouseErContrib = num('spouseErContrib')/100;
+    var spouseDcNetReturn = Math.max(num('spouseDcReturn')/100 - num('spouseDcFee')/100, -0.99);
+    var spouseTfsaReturn = num('spouseTfsaReturn')/100, spouseRrspReturn = num('spouseRrspReturn')/100,
+        spouseStockReturn = num('spouseStockReturn')/100, spouseCashReturn = num('spouseCashReturn')/100;
+    var spouseAssetDefs = [
+      { key:'tfsa', balance: Math.max(num('spouseTfsaBalance'),0), contrib: Math.max(num('spouseTfsaContrib'),0), ret: spouseTfsaReturn },
+      { key:'rrsp', balance: Math.max(num('spouseRrspBalance'),0), contrib: Math.max(num('spouseRrspContrib'),0), ret: spouseRrspReturn },
+      { key:'stock', balance: Math.max(num('spouseStockBalance'),0), contrib: Math.max(num('spouseStockContrib'),0), ret: spouseStockReturn },
+      { key:'cash', balance: Math.max(num('spouseCashBalance'),0), contrib: Math.max(num('spouseCashContrib'),0), ret: spouseCashReturn }
+    ];
+    var spouseAssetBal = {};
+    spouseAssetDefs.forEach(function(a){ spouseAssetBal[a.key] = a.balance; });
+
+    var accumYears = retireAge - currentAge;
+    var salaries = [];
+    var dcBal = dcBalance;
+    var spouseDcBalRunning = spouseDcBal;
+    var accumulation = [];
+    var totalContrib = 0;
+
+    for(var i=0;i<accumYears;i++){
+      var salary = currentSalary * Math.pow(1+salaryGrowth, i);
+      var contribution = salary * (eeContrib+erContrib);
+      totalContrib += contribution;
+      dcBal = (dcBal + contribution) * (1+dcNetReturn);
+      salaries.push(salary);
+
+      var escalation = Math.pow(1+salaryGrowth, i);
+      assetDefs.forEach(function(a){
+        assetBal[a.key] = (assetBal[a.key] + a.contrib*escalation) * (1+a.ret);
+      });
+
+      if(married){
+        var spouseSalaryYear = spouseSalary * Math.pow(1+salaryGrowth, i);
+        var spouseContribution = spouseSalaryYear * (spouseEeContrib+spouseErContrib);
+        spouseDcBalRunning = (spouseDcBalRunning + spouseContribution) * (1+spouseDcNetReturn);
+        spouseAssetDefs.forEach(function(a){
+          spouseAssetBal[a.key] = (spouseAssetBal[a.key] + a.contrib*escalation) * (1+a.ret);
+        });
+      }
+
+      var spouseTotalThisYear = married ? spouseDcBalRunning + spouseAssetBal.tfsa + spouseAssetBal.rrsp + spouseAssetBal.stock + spouseAssetBal.cash : 0;
+      accumulation.push({
+        age: currentAge+i+1, salary: salary, dcBalance: dcBal,
+        totalBalance: dcBal + assetBal.tfsa + assetBal.rrsp + assetBal.stock + assetBal.cash + spouseTotalThisYear
+      });
+    }
+
+    var dcBalanceAtRetirement = dcBal;
+    var tfsaAtRetirement = assetBal.tfsa, rrspAtRetirement = assetBal.rrsp,
+        stockAtRetirement = assetBal.stock, cashAtRetirement = assetBal.cash;
+    var spouseDcAtRetirement = married ? spouseDcBalRunning : 0;
+    var spouseTfsaAtRetirement = married ? spouseAssetBal.tfsa : 0, spouseRrspAtRetirement = married ? spouseAssetBal.rrsp : 0,
+        spouseStockAtRetirement = married ? spouseAssetBal.stock : 0, spouseCashAtRetirement = married ? spouseAssetBal.cash : 0;
+
+    var yearsOfService = serviceToDate + accumYears;
+    var lastN = salaries.slice(Math.max(0, salaries.length-avgYears));
+    var finalAvgEarnings = lastN.length ? lastN.reduce(function(a,b){return a+b;},0)/lastN.length : currentSalary;
+    var dbAnnualPension = accrualRate * yearsOfService * finalAvgEarnings;
+
+    /* CPP & OAS: actuarially adjusted for start age, indexed to inflation once started,
+       added to BOTH the savings income and the theoretical DB income, since either way you'd receive them. */
+    var cppAtStart = cppAnnualAtStart(Math.max(num('cppAmount'),0), Math.round(num('cppStart')));
+    var oasAtStart = oasAnnualAtStart(Math.max(num('oasAmount'),0), Math.round(num('oasStart')));
+    var cppStartAge = Math.round(num('cppStart')), oasStartAge = Math.round(num('oasStart'));
+    var spouseCppAtStart = married ? cppAnnualAtStart(Math.max(num('spouseCppAmount'),0), Math.round(num('spouseCppStart'))) : 0;
+    var spouseOasAtStart = married ? oasAnnualAtStart(Math.max(num('spouseOasAmount'),0), Math.round(num('spouseOasStart'))) : 0;
+    var spouseCppStartAge = Math.round(num('spouseCppStart')), spouseOasStartAge = Math.round(num('spouseOasStart'));
+
+    /* Two decumulation pools: "registered" (DC+RRSP, eligible for RRIF-minimum rules)
+       and "other" (TFSA+stocks+cash, always drawn down at the flat withdrawal rate).
+       Spouse's own accounts (if married) are combined into the same household pools. */
+    var registeredBalance = dcBalanceAtRetirement + rrspAtRetirement + spouseDcAtRetirement + spouseRrspAtRetirement;
+    var registeredReturn = registeredBalance > 0
+      ? (dcBalanceAtRetirement*dcNetReturn + rrspAtRetirement*rrspReturn + spouseDcAtRetirement*spouseDcNetReturn + spouseRrspAtRetirement*spouseRrspReturn) / registeredBalance
+      : dcNetReturn;
+    var otherBalance = tfsaAtRetirement + stockAtRetirement + cashAtRetirement + spouseTfsaAtRetirement + spouseStockAtRetirement + spouseCashAtRetirement;
+    var otherReturn = otherBalance > 0
+      ? (tfsaAtRetirement*tfsaReturn + stockAtRetirement*stockReturn + cashAtRetirement*cashReturn
+         + spouseTfsaAtRetirement*spouseTfsaReturn + spouseStockAtRetirement*spouseStockReturn + spouseCashAtRetirement*spouseCashReturn) / otherBalance
+      : 0;
+
+    var registeredYear1 = decumMethod==='rrif' ? registeredBalance*rrifFactor(retireAge) : registeredBalance*withdrawalRate;
+    var otherYear1 = otherBalance*withdrawalRate;
+
+    var decumYears = planToAge - retireAge;
+    var decumulation = [];
+    var runReg = registeredBalance, runOther = otherBalance;
+    var depletionAge = null;
+
+    for(var j=0;j<=decumYears;j++){
+      var age = retireAge + j;
+
+      var regIncome, regStart = runReg;
+      if(runReg <= 0){
+        regIncome = 0; runReg = 0;
+      } else if(decumMethod === 'rrif'){
+        regIncome = runReg * rrifFactor(age);
+        runReg = Math.max(runReg - regIncome, 0) * (1+registeredReturn);
+      } else {
+        var regTarget = registeredYear1 * Math.pow(1+inflation, j);
+        regIncome = Math.min(regTarget, runReg);
+        if(regIncome < regTarget - 0.5 && depletionAge===null) depletionAge = age;
+        runReg = Math.max(runReg - regIncome, 0) * (1+registeredReturn);
+      }
+
+      var otherIncome, otherStart = runOther;
+      if(runOther <= 0){
+        otherIncome = 0; runOther = 0;
+      } else {
+        var otherTarget = otherYear1 * Math.pow(1+inflation, j);
+        otherIncome = Math.min(otherTarget, runOther);
+        if(otherIncome < otherTarget - 0.5 && depletionAge===null) depletionAge = age;
+        runOther = Math.max(runOther - otherIncome, 0) * (1+otherReturn);
+      }
+
+      var benefits = 0;
+      if(age >= cppStartAge) benefits += cppAtStart * Math.pow(1+inflation, age-cppStartAge);
+      if(age >= oasStartAge) benefits += oasAtStart * Math.pow(1+inflation, age-oasStartAge);
+      if(married){
+        if(age >= spouseCppStartAge) benefits += spouseCppAtStart * Math.pow(1+inflation, age-spouseCppStartAge);
+        if(age >= spouseOasStartAge) benefits += spouseOasAtStart * Math.pow(1+inflation, age-spouseOasStartAge);
+      }
+
+      var dcIncome = regIncome + otherIncome + benefits;
+      var dbIncome = dbAnnualPension * (dbIndexed ? Math.pow(1+inflation, j) : 1) + benefits;
+      if(age < 65) dbIncome += bridgeAmount * (dbIndexed ? Math.pow(1+inflation, j) : 1);
+
+      var deflator = Math.pow(1+inflation, j + accumYears);
+      decumulation.push({
+        age: age,
+        dcIncomeNominal: dcIncome,
+        dbIncomeNominal: dbIncome,
+        dcIncomeReal: dcIncome / deflator,
+        dbIncomeReal: dbIncome / deflator,
+        dcBalanceStart: regStart + otherStart,
+        dcBalanceEnd: runReg + runOther,
+        taxableIncomeNominal: regIncome + benefits,
+        nonTaxableIncomeNominal: otherIncome
+      });
+    }
+
+    var balanceTimeline = accumulation.map(function(d){ return { age:d.age, balance:d.totalBalance }; });
+    for(var k=1;k<decumulation.length;k++){
+      balanceTimeline.push({ age: decumulation[k].age, balance: decumulation[k].dcBalanceStart });
+    }
+    if(decumulation.length){
+      var lastD = decumulation[decumulation.length-1];
+      balanceTimeline.push({ age: lastD.age, balance: lastD.dcBalanceEnd });
+    }
+
+    return {
+      currentAge: currentAge, retireAge: retireAge, planToAge: planToAge,
+      accumulation: accumulation, decumulation: decumulation, balanceTimeline: balanceTimeline,
+      dcBalanceAtRetirement: dcBalanceAtRetirement,
+      tfsaAtRetirement: tfsaAtRetirement, rrspAtRetirement: rrspAtRetirement,
+      stockAtRetirement: stockAtRetirement, cashAtRetirement: cashAtRetirement,
+      totalBalanceAtRetirement: registeredBalance + otherBalance,
+      yearsOfService: yearsOfService,
+      finalAvgEarnings: finalAvgEarnings, dbAnnualPension: dbAnnualPension,
+      totalContrib: totalContrib,
+      depletionAge: depletionAge, cppBridge: cppBridge, bridgeAmount: bridgeAmount, dbIndexed: dbIndexed,
+      finalSalary: salaries.length ? salaries[salaries.length-1] : currentSalary,
+      inflation: inflation, decumMethod: decumMethod, withdrawalRate: withdrawalRate,
+      dcYear1Income: decumulation.length ? decumulation[0].dcIncomeNominal : 0,
+      rrifFactorAtRetirement: rrifFactor(retireAge),
+      married: married, incomeSplit: incomeSplit,
+      cppAtStart: cppAtStart, oasAtStart: oasAtStart, cppStartAge: cppStartAge, oasStartAge: oasStartAge,
+      spouseCppAtStart: spouseCppAtStart, spouseOasAtStart: spouseOasAtStart,
+      spouseCppStartAge: spouseCppStartAge, spouseOasStartAge: spouseOasStartAge,
+      primary: {
+        registeredAtRetirement: dcBalanceAtRetirement + rrspAtRetirement, registeredReturn: registeredReturn,
+        dcAtRetirement: dcBalanceAtRetirement, rrspAtRetirement: rrspAtRetirement, dcReturn: dcNetReturn, rrspReturn: rrspReturn,
+        otherAtRetirement: tfsaAtRetirement + stockAtRetirement + cashAtRetirement,
+        tfsaAtRetirement: tfsaAtRetirement, stockAtRetirement: stockAtRetirement, cashAtRetirement: cashAtRetirement,
+        tfsaReturn: tfsaReturn, stockReturn: stockReturn, cashReturn: cashReturn,
+        cppAtStart: cppAtStart, oasAtStart: oasAtStart, cppStartAge: cppStartAge, oasStartAge: oasStartAge
+      },
+      spouse: married ? {
+        registeredAtRetirement: spouseDcAtRetirement + spouseRrspAtRetirement,
+        registeredReturn: (spouseDcAtRetirement+spouseRrspAtRetirement) > 0 ? (spouseDcAtRetirement*spouseDcNetReturn + spouseRrspAtRetirement*spouseRrspReturn)/(spouseDcAtRetirement+spouseRrspAtRetirement) : spouseDcNetReturn,
+        dcAtRetirement: spouseDcAtRetirement, rrspAtRetirement: spouseRrspAtRetirement, dcReturn: spouseDcNetReturn, rrspReturn: spouseRrspReturn,
+        otherAtRetirement: spouseTfsaAtRetirement + spouseStockAtRetirement + spouseCashAtRetirement,
+        tfsaAtRetirement: spouseTfsaAtRetirement, stockAtRetirement: spouseStockAtRetirement, cashAtRetirement: spouseCashAtRetirement,
+        tfsaReturn: spouseTfsaReturn, stockReturn: spouseStockReturn, cashReturn: spouseCashReturn,
+        cppAtStart: spouseCppAtStart, oasAtStart: spouseOasAtStart, cppStartAge: spouseCppStartAge, oasStartAge: spouseOasStartAge
+      } : null
+    };
+  }
+
+  /* ---------------- tax-optimized withdrawal simulation ----------------
+     Heuristic (not a full optimizer): each year, mandatory income (CPP, OAS, DB,
+     and RRIF minimums from 71 on) is drawn first. Any shortfall against the goal
+     is topped up from RRSP/RRIF while it stays within the current tax bracket,
+     then cash, then non-registered stock, then TFSA (kept for last, tax-free
+     growth). If income splitting is on, the household's combined taxable
+     retirement income is pooled and divided evenly for tax purposes. */
+  function computeTaxPlan(m, province, goalAnnual){
+    var retireAge = m.retireAge, planToAge = m.planToAge, inflation = m.inflation;
+    var married = m.married, split = m.incomeSplit;
+
+    var pReg = m.primary.registeredAtRetirement, pRegRet = m.primary.registeredReturn;
+    var pCash = m.primary.cashAtRetirement, pCashRet = m.primary.cashReturn;
+    var pStock = m.primary.stockAtRetirement, pStockRet = m.primary.stockReturn;
+    var pTfsa = m.primary.tfsaAtRetirement, pTfsaRet = m.primary.tfsaReturn;
+
+    var sReg=0,sRegRet=0,sCash=0,sCashRet=0,sStock=0,sStockRet=0,sTfsa=0,sTfsaRet=0;
+    if(married){
+      sReg = m.spouse.registeredAtRetirement; sRegRet = m.spouse.registeredReturn;
+      sCash = m.spouse.cashAtRetirement; sCashRet = m.spouse.cashReturn;
+      sStock = m.spouse.stockAtRetirement; sStockRet = m.spouse.stockReturn;
+      sTfsa = m.spouse.tfsaAtRetirement; sTfsaRet = m.spouse.tfsaReturn;
+    }
+
+    function drawPool(pAmt,pRet,sAmt,sRet,w){
+      var fromP = Math.min(w,pAmt), fromS = w-fromP;
+      return [ Math.max(pAmt-fromP,0)*(1+pRet), Math.max(sAmt-fromS,0)*(1+sRet) ];
+    }
+
+    var rows = [], totalTax = 0, totalGrossAll = 0;
+
+    for(var j=0;j<=(planToAge-retireAge);j++){
+      var age = retireAge+j;
+      var infl = Math.pow(1+inflation, j);
+      var targetThisYear = goalAnnual*infl;
+      var dbGrowth = m.dbIndexed ? infl : 1;
+      var dbThis = m.dbAnnualPension*dbGrowth + (age<65 ? m.bridgeAmount*dbGrowth : 0);
+
+      var pCpp = age>=m.primary.cppStartAge ? m.primary.cppAtStart*Math.pow(1+inflation, age-m.primary.cppStartAge) : 0;
+      var pOas = age>=m.primary.oasStartAge ? m.primary.oasAtStart*Math.pow(1+inflation, age-m.primary.oasStartAge) : 0;
+      var pRrifMin = age>=71 ? pReg*rrifFactor(age) : 0;
+      var pAuto = dbThis + pCpp + pOas + pRrifMin;
+
+      var sCpp=0, sOas=0, sRrifMin=0, sAuto=0;
+      if(married){
+        sCpp = age>=m.spouse.cppStartAge ? m.spouse.cppAtStart*Math.pow(1+inflation, age-m.spouse.cppStartAge) : 0;
+        sOas = age>=m.spouse.oasStartAge ? m.spouse.oasAtStart*Math.pow(1+inflation, age-m.spouse.oasStartAge) : 0;
+        sRrifMin = age>=71 ? sReg*rrifFactor(age) : 0;
+        sAuto = sCpp+sOas+sRrifMin;
+      }
+
+      var householdAuto = pAuto + sAuto;
+      var pRegAvail = Math.max(0, pReg - pRrifMin), sRegAvail = married ? Math.max(0, sReg - sRrifMin) : 0;
+      var addP = 0, addS = 0;
+
+      /* targetThisYear and remainingNeed are AFTER-TAX amounts (the goal is after-tax).
+         Registered withdrawals are grossed up by the marginal rate they'd face so the
+         after-tax result lands on target; cash/stock/TFSA need no grossing (tax-free here). */
+      if(married && split){
+        var autoAfterTax = householdAuto - 2*combinedTax(householdAuto/2, province);
+        var remainingNeed = Math.max(0, targetThisYear - autoAfterTax);
+        var basis = householdAuto/2;
+        var ceiling = combinedBracketCeiling(basis, province);
+        var rate1 = combinedMarginalRate(basis, province);
+        var totalRoom = Math.max(0, 2*ceiling - householdAuto);
+        var totalAvail = pRegAvail + sRegAvail;
+        var addTotal = Math.min(rate1<1 ? remainingNeed/(1-rate1) : totalRoom, totalRoom, totalAvail);
+        if(totalAvail>0){ addP = addTotal*(pRegAvail/totalAvail); addS = addTotal-addP; }
+        remainingNeed -= addTotal*(1-rate1);
+        var pRoom2 = pRegAvail-addP, sRoom2 = sRegAvail-addS, moreAvail = pRoom2+sRoom2;
+        if(remainingNeed>0 && moreAvail>0){
+          var rate2 = combinedMarginalRate(ceiling, province);
+          var more = Math.min(rate2<1 ? remainingNeed/(1-rate2) : moreAvail, moreAvail);
+          var moreP = more*(pRoom2/moreAvail), moreS = more-moreP;
+          addP += moreP; addS += moreS; remainingNeed -= more*(1-rate2);
+        }
+      } else {
+        var autoAfterTax = married
+          ? (pAuto - combinedTax(pAuto, province)) + (sAuto - combinedTax(sAuto, province))
+          : (pAuto - combinedTax(pAuto, province));
+        var remainingNeed = Math.max(0, targetThisYear - autoAfterTax);
+        var order = married ? (pAuto<=sAuto ? ['p','s'] : ['s','p']) : ['p'];
+        var autos = { p:pAuto, s:sAuto }, avail = { p:pRegAvail, s:sRegAvail }, added = { p:0, s:0 };
+        order.forEach(function(who){
+          if(remainingNeed<=0) return;
+          var ceil = combinedBracketCeiling(autos[who], province);
+          var rate = combinedMarginalRate(autos[who], province);
+          var room = Math.max(0, ceil-autos[who]);
+          var draw = Math.min(rate<1 ? remainingNeed/(1-rate) : room, room, avail[who]);
+          added[who] += draw; autos[who] += draw; avail[who] -= draw; remainingNeed -= draw*(1-rate);
+        });
+        order.forEach(function(who){
+          if(remainingNeed<=0) return;
+          var rate = combinedMarginalRate(autos[who], province);
+          var draw = Math.min(rate<1 ? remainingNeed/(1-rate) : avail[who], avail[who]);
+          added[who] += draw; avail[who] -= draw; remainingNeed -= draw*(1-rate);
+        });
+        addP = added.p; addS = married ? added.s : 0;
+      }
+
+      var cashTotal = pCash+sCash, stockTotal = pStock+sStock, tfsaTotal = pTfsa+sTfsa;
+      var cashW = Math.min(remainingNeed, cashTotal); remainingNeed -= cashW;
+      var stockW = Math.min(remainingNeed, stockTotal); remainingNeed -= stockW;
+      var tfsaW = Math.min(remainingNeed, tfsaTotal); remainingNeed -= tfsaW;
+
+      var pTaxable = pAuto+addP, sTaxable = married ? (sAuto+addS) : 0;
+      var tax, clawback;
+      if(married && split){
+        var pooled = pTaxable+sTaxable, half = pooled/2;
+        tax = combinedTax(half, province)*2;
+        clawback = oasClawback(half, pOas) + oasClawback(half, sOas);
+      } else if(married){
+        tax = combinedTax(pTaxable, province) + combinedTax(sTaxable, province);
+        clawback = oasClawback(pTaxable, pOas) + oasClawback(sTaxable, sOas);
+      } else {
+        tax = combinedTax(pTaxable, province);
+        clawback = oasClawback(pTaxable, pOas);
+      }
+
+      var grossIncome = householdAuto + addP + addS + cashW + stockW + tfsaW;
+      var taxAndClawback = tax + clawback;
+      totalTax += taxAndClawback;
+      totalGrossAll += grossIncome;
+
+      rows.push({
+        age: age, phase: age<71 ? 'Pre-71' : '71+',
+        automatic: householdAuto, additionalRegistered: addP+addS,
+        cashW: cashW, stockW: stockW, tfsaW: tfsaW,
+        grossIncome: grossIncome, tax: taxAndClawback, afterTax: grossIncome-taxAndClawback,
+        shortfall: remainingNeed
+      });
+
+      pReg = Math.max(pReg-pRrifMin-addP, 0) * (1+pRegRet);
+      if(married) sReg = Math.max(sReg-sRrifMin-addS, 0) * (1+sRegRet);
+      var cashR = drawPool(pCash,pCashRet,sCash,sCashRet,cashW); pCash=cashR[0]; sCash=cashR[1];
+      var stockR = drawPool(pStock,pStockRet,sStock,sStockRet,stockW); pStock=stockR[0]; sStock=stockR[1];
+      var tfsaR = drawPool(pTfsa,pTfsaRet,sTfsa,sTfsaRet,tfsaW); pTfsa=tfsaR[0]; sTfsa=tfsaR[1];
+    }
+
+    return { rows: rows, totalTax: totalTax, totalGross: totalGrossAll,
+      effectiveRate: totalGrossAll>0 ? totalTax/totalGrossAll : 0 };
+  }
+
+  /* ---------------- SVG chart helpers ---------------- */
+  var CW = 640, CH = 300, PAD = { t:14, r:16, b:28, l:54 };
+
+  function niceMax(v){
+    if(v<=0) return 10;
+    var mag = Math.pow(10, Math.floor(Math.log10(v)));
+    var norm = v/mag;
+    var step = norm<=1?1:norm<=2?2:norm<=5?5:10;
+    return step*mag;
+  }
+  function svgEl(tag, attrs){
+    var e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for(var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+  function moneyShort(v){
+    if(Math.abs(v)>=1000000) return '$'+(v/1000000).toFixed(1)+'M';
+    if(Math.abs(v)>=1000) return '$'+Math.round(v/1000)+'K';
+    return '$'+Math.round(v);
+  }
+
+  function buildScales(data, xKey, yKeys){
+    var xs = data.map(function(d){return d[xKey];});
+    var xMin = Math.min.apply(null, xs), xMax = Math.max.apply(null, xs);
+    var yMax = 0;
+    data.forEach(function(d){ yKeys.forEach(function(k){ if(d[k]>yMax) yMax = d[k]; }); });
+    yMax = niceMax(yMax*1.12 || 10);
+    var x = function(v){ return PAD.l + (v-xMin)/(xMax-xMin||1) * (CW-PAD.l-PAD.r); };
+    var y = function(v){ return CH-PAD.b - (v/yMax) * (CH-PAD.t-PAD.b); };
+    return { x:x, y:y, xMin:xMin, xMax:xMax, yMax:yMax };
+  }
+
+  function drawAxes(svg, scales){
+    var ticks = 5;
+    for(var i=0;i<=ticks;i++){
+      var val = scales.yMax * i/ticks;
+      var yy = scales.y(val);
+      svg.appendChild(svgEl('line', { x1:PAD.l, x2:CW-PAD.r, y1:yy, y2:yy, class:'grid-line' }));
+      var t = svgEl('text', { x:PAD.l-8, y:yy+3.5, class:'axis-text', 'text-anchor':'end' });
+      t.textContent = moneyShort(val);
+      svg.appendChild(t);
+    }
+    var xTicks = Math.min(scales.xMax-scales.xMin, 8);
+    for(var j=0;j<=xTicks;j++){
+      var age = Math.round(scales.xMin + (scales.xMax-scales.xMin) * j/xTicks);
+      var xx = scales.x(age);
+      var t2 = svgEl('text', { x:xx, y:CH-PAD.b+18, class:'axis-text', 'text-anchor':'middle' });
+      t2.textContent = age;
+      svg.appendChild(t2);
+    }
+    svg.appendChild(svgEl('line', { x1:PAD.l, x2:CW-PAD.r, y1:CH-PAD.b, y2:CH-PAD.b, class:'grid-line', style:'stroke:var(--ink-muted)' }));
+  }
+
+  function pathFor(data, xKey, yKey, scales){
+    return data.map(function(d,i){ return (i===0?'M':'L')+scales.x(d[xKey]).toFixed(1)+','+scales.y(d[yKey]).toFixed(1); }).join(' ');
+  }
+  function areaPathFor(data, xKey, yKey, scales){
+    var top = pathFor(data, xKey, yKey, scales);
+    var base = scales.y(0);
+    return top + ' L'+scales.x(data[data.length-1][xKey]).toFixed(1)+','+base.toFixed(1)+
+      ' L'+scales.x(data[0][xKey]).toFixed(1)+','+base.toFixed(1)+' Z';
+  }
+
+  function renderIncomeChart(model){
+    var svg = $('chartIncome');
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox','0 0 '+CW+' '+CH);
+    var dcKey = moneyMode==='nominal' ? 'dcIncomeNominal' : 'dcIncomeReal';
+    var dbKey = moneyMode==='nominal' ? 'dbIncomeNominal' : 'dbIncomeReal';
+    var data = model.decumulation;
+    if(!data.length) return;
+    var scales = buildScales(data, 'age', [dcKey, dbKey]);
+    drawAxes(svg, scales);
+
+    svg.appendChild(svgEl('path', { d: pathFor(data,'age',dbKey,scales), class:'series-line', style:'stroke:var(--db)' }));
+    svg.appendChild(svgEl('path', { d: pathFor(data,'age',dcKey,scales), class:'series-line', style:'stroke:var(--dc)' }));
+
+    if(model.depletionAge!==null && model.depletionAge <= model.planToAge){
+      var rx = scales.x(model.depletionAge);
+      svg.appendChild(svgEl('line', { x1:rx, x2:rx, y1:PAD.t, y2:CH-PAD.b, class:'ref-line' }));
+      var rl = svgEl('text', { x:rx+5, y:PAD.t+11, class:'ref-label' });
+      rl.textContent = 'DC depleted, age '+model.depletionAge;
+      svg.appendChild(rl);
+    }
+
+    var last = data[data.length-1];
+    [['dc',dcKey],['db',dbKey]].forEach(function(pair){
+      var color = 'var(--'+pair[0]+')';
+      svg.appendChild(svgEl('circle', { cx:scales.x(last.age), cy:scales.y(last[pair[1]]), r:4, fill:color, class:'end-dot' }));
+      var lab = svgEl('text', { x:scales.x(last.age)-6, y:scales.y(last[pair[1]]) + (pair[0]==='dc'?-8:16), class:'end-label', 'text-anchor':'end', style:'fill:'+color });
+      lab.textContent = moneyShort(last[pair[1]]);
+      svg.appendChild(lab);
+    });
+
+    attachHover(svg, $('tooltip1'), data, scales, [
+      {key:dcKey, color:'var(--dc)', label:'DC income'},
+      {key:dbKey, color:'var(--db)', label:'DB income'}
+    ]);
+
+    renderTable1(model, dcKey, dbKey);
+  }
+
+  function renderBalanceChart(model){
+    var svg = $('chartBalance');
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox','0 0 '+CW+' '+CH);
+    var data = model.balanceTimeline;
+    if(!data.length) return;
+    var scales = buildScales(data, 'age', ['balance']);
+    drawAxes(svg, scales);
+
+    svg.appendChild(svgEl('path', { d: areaPathFor(data,'age','balance',scales), class:'series-area', style:'fill:var(--dc)' }));
+    svg.appendChild(svgEl('path', { d: pathFor(data,'age','balance',scales), class:'series-line', style:'stroke:var(--dc)' }));
+
+    var retIdx = data.findIndex(function(d){ return d.age === model.retireAge; });
+    if(retIdx>=0){
+      var peak = data[retIdx];
+      svg.appendChild(svgEl('circle', { cx:scales.x(peak.age), cy:scales.y(peak.balance), r:4, fill:'var(--dc)', class:'end-dot' }));
+      var pl = svgEl('text', { x:scales.x(peak.age), y:scales.y(peak.balance)-10, class:'peak-label', 'text-anchor':'middle' });
+      pl.textContent = 'Retire: '+moneyShort(peak.balance);
+      svg.appendChild(pl);
+    }
+    if(model.depletionAge!==null && model.depletionAge <= model.planToAge){
+      var dIdx = data.findIndex(function(d){ return d.age === model.depletionAge; });
+      if(dIdx>=0){
+        var rx = scales.x(model.depletionAge);
+        svg.appendChild(svgEl('line', { x1:rx, x2:rx, y1:PAD.t, y2:CH-PAD.b, class:'ref-line' }));
+        var rl = svgEl('text', { x:rx+5, y:PAD.t+11, class:'ref-label' });
+        rl.textContent = 'Depleted, age '+model.depletionAge;
+        svg.appendChild(rl);
+      }
+    }
+
+    attachHover(svg, $('tooltip2'), data, scales, [ {key:'balance', color:'var(--dc)', label:'DC balance'} ]);
+    renderTable2(model);
+  }
+
+  function attachHover(svg, tooltip, data, scales, series){
+    var crosshair = svgEl('line', { class:'crosshair', y1:PAD.t, y2:CH-PAD.b });
+    svg.appendChild(crosshair);
+    var dots = series.map(function(s){
+      var d = svgEl('circle', { class:'hover-dot', r:4, fill:s.color });
+      svg.appendChild(d); return d;
+    });
+    var hit = svgEl('rect', { x:PAD.l, y:PAD.t, width:CW-PAD.l-PAD.r, height:CH-PAD.t-PAD.b, class:'hit-rect' });
+    svg.appendChild(hit);
+
+    function nearest(px){
+      var minD = Infinity, idx = 0;
+      data.forEach(function(d,i){ var dx = Math.abs(scales.x(d.age)-px); if(dx<minD){ minD=dx; idx=i; } });
+      return idx;
+    }
+    function move(evt){
+      var rect = svg.getBoundingClientRect();
+      var clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+      var px = (clientX - rect.left) * (CW/rect.width);
+      var idx = nearest(px);
+      var d = data[idx];
+      var cx = scales.x(d.age);
+      crosshair.setAttribute('x1', cx); crosshair.setAttribute('x2', cx); crosshair.style.opacity = 1;
+      var html = '<div class="t-age">Age '+d.age+'</div>';
+      series.forEach(function(s, i){
+        dots[i].setAttribute('cx', cx); dots[i].setAttribute('cy', scales.y(d[s.key])); dots[i].style.opacity = 1;
+        html += '<div class="t-row"><span class="t-dot" style="background:'+s.color+'"></span>'+s.label+': '+fmtMoney0.format(Math.round(d[s.key]))+'</div>';
+      });
+      tooltip.innerHTML = html;
+      var wrapRect = svg.parentElement.getBoundingClientRect();
+      var leftPx = (cx/CW)*rect.width + (rect.left - wrapRect.left);
+      tooltip.style.left = leftPx+'px';
+      tooltip.style.top = ((scales.y(d[series[0].key])/CH)*rect.height - 10)+'px';
+      tooltip.style.opacity = 1;
+    }
+    function leave(){
+      crosshair.style.opacity = 0; dots.forEach(function(d){ d.style.opacity=0; }); tooltip.style.opacity = 0;
+    }
+    hit.addEventListener('mousemove', move);
+    hit.addEventListener('mouseleave', leave);
+    hit.addEventListener('touchmove', function(e){ move(e); e.preventDefault(); }, {passive:false});
+    hit.addEventListener('touchend', leave);
+  }
+
+  function renderTable1(model, dcKey, dbKey){
+    var rows = model.decumulation.map(function(d){
+      return '<tr><td>'+d.age+'</td><td>'+fmtMoney0.format(Math.round(d[dcKey]))+'</td><td>'+fmtMoney0.format(Math.round(d[dbKey]))+'</td></tr>';
+    }).join('');
+    $('table1').innerHTML = '<table class="data-table"><thead><tr><th>Age</th><th>Your savings</th><th>DB income</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  }
+  function renderTable2(model){
+    var rows = model.balanceTimeline.map(function(d){
+      return '<tr><td>'+d.age+'</td><td>'+fmtMoney0.format(Math.round(d.balance))+'</td></tr>';
+    }).join('');
+    $('table2').innerHTML = '<table class="data-table"><thead><tr><th>Age</th><th>Total balance</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  }
+
+  /* ---------------- results text ---------------- */
+  function render(){
+    var m = computeModel();
+
+    var dbYear1Income = m.decumulation.length ? m.decumulation[0].dbIncomeNominal : 0;
+    $('dcHero').textContent = fmtMoney0.format(Math.round(m.dcYear1Income));
+    $('dbHero').textContent = fmtMoney0.format(Math.round(dbYear1Income));
+    var wRate = (Math.round(num('withdrawalRate')*10)/10).toString();
+    $('dcHeroSub').textContent = (m.decumMethod === 'rrif'
+      ? 'RRIF minimum on DC+RRSP, '+wRate+'% on TFSA/stocks/cash'
+      : wRate+'% withdrawal') + ' — '+fmtMoney0.format(Math.round(m.totalBalanceAtRetirement))+' total at retirement';
+    $('dbHeroSub').textContent = (m.cppBridge ? 'formula pension + bridge to 65' : 'formula pension income') + ' + CPP/OAS';
+
+    var goalMonthly = Math.max(num('goalMonthlyIncome'), 0);
+    var actualMonthly = estimateAfterTaxYear1(m) / 12;
+    $('goalCheckGoal').innerHTML = fmtMoney0.format(Math.round(goalMonthly))+'<span>/mo</span>';
+    $('goalCheckActual').innerHTML = fmtMoney0.format(Math.round(actualMonthly))+'<span>/mo</span>';
+    var ratio = goalMonthly > 0 ? actualMonthly/goalMonthly : 1;
+    var fillColor = ratio >= 1 ? 'var(--dc)' : ratio >= 0.75 ? 'var(--warning)' : 'var(--critical)';
+    var fill = $('goalMeterFill');
+    fill.style.width = Math.min(ratio,1)*100 + '%';
+    fill.style.background = fillColor;
+    var goalDiff = actualMonthly - goalMonthly;
+    $('goalCheckNote').textContent = (goalDiff >= 0
+      ? 'On track — your savings are projected to beat your after-tax goal by '+fmtMoney0.format(Math.round(goalDiff))+'/mo in year one.'
+      : 'Short of after-tax goal by '+fmtMoney0.format(Math.round(Math.abs(goalDiff)))+'/mo in year one, based on your DC, RRSP, TFSA, stocks and cash (excludes the theoretical DB).')
+      + ' Estimated at combined federal + '+TAX_DATA.provinces[getSelectedProvince()].name+' tax rates (approximate; set your province on the tax-optimized withdrawal page).';
+
+    var diff = m.dcYear1Income - dbYear1Income;
+    var pct = dbYear1Income > 0 ? Math.abs(diff)/dbYear1Income*100 : 0;
+    $('deltaStrip').innerHTML = 'In year one, your combined savings provide <span class="amt">'+fmtMoney0.format(Math.round(Math.abs(diff)))+'</span> '
+      + (diff>=0?'more':'less') + ' than the theoretical DB pension (incl. CPP/OAS' + (m.cppBridge?' + bridge':'') + ') — about ' + fmtNum0.format(Math.round(pct)) + '%.';
+
+    var chipWrap = $('statusChipWrap');
+    if(m.depletionAge !== null){
+      var yearsShort = m.planToAge - m.depletionAge;
+      chipWrap.innerHTML = '<div class="status-chip critical"><span class="dot"></span>'
+        + '<span>At these settings, your combined savings income is projected to fall short starting at age <strong>'+m.depletionAge+'</strong> — '
+        + yearsShort+' years before age '+m.planToAge+'. The theoretical DB pension keeps paying in full for life regardless.</span></div>';
+    } else if(m.decumMethod === 'rrif'){
+      chipWrap.innerHTML = '<div class="status-chip good"><span class="dot"></span>'
+        + '<span>Your DC &amp; RRSP balance is drawn down under CRA RRIF minimum withdrawals and mathematically never hits zero, though income moves '
+        + 'with the balance and schedule. TFSA, stocks and cash draw down at your chosen withdrawal rate. The theoretical DB pension pays a steady amount for life regardless.</span></div>';
+    } else {
+      chipWrap.innerHTML = '<div class="status-chip good"><span class="dot"></span>'
+        + '<span>At this withdrawal rate, your combined savings are projected to last through age <strong>'+m.planToAge+'</strong> without running out.</span></div>';
+    }
+
+    renderIncomeChart(m);
+    renderBalanceChart(m);
+
+    var detail = [
+      ['Final salary before retirement', fmtMoney0.format(Math.round(m.finalSalary))],
+      ['Years of credited service', fmtNum0.format(Math.round(m.yearsOfService))+' yrs'],
+      ['Final average earnings (DB)', fmtMoney0.format(Math.round(m.finalAvgEarnings))],
+      ['DC balance at retirement', fmtMoney0.format(Math.round(m.dcBalanceAtRetirement))],
+      ['RRSP balance at retirement', fmtMoney0.format(Math.round(m.rrspAtRetirement))],
+      ['TFSA balance at retirement', fmtMoney0.format(Math.round(m.tfsaAtRetirement))],
+      ['Stocks balance at retirement', fmtMoney0.format(Math.round(m.stockAtRetirement))],
+      ['Cash balance at retirement', fmtMoney0.format(Math.round(m.cashAtRetirement))],
+      ['Total savings at retirement', fmtMoney0.format(Math.round(m.totalBalanceAtRetirement))],
+      ['Total DC contributions (employee + employer)', fmtMoney0.format(Math.round(m.totalContrib))],
+      ['Your CPP + OAS at start', fmtMoney0.format(Math.round(m.cppAtStart+m.oasAtStart))+'/yr']
+    ];
+    if(m.married && m.spouse){
+      detail.push(['Spouse’s registered (DC+RRSP) at retirement', fmtMoney0.format(Math.round(m.spouse.registeredAtRetirement))]);
+      detail.push(['Spouse’s TFSA+stocks+cash at retirement', fmtMoney0.format(Math.round(m.spouse.otherAtRetirement))]);
+      detail.push(['Spouse’s CPP + OAS at start', fmtMoney0.format(Math.round(m.spouse.cppAtStart+m.spouse.oasAtStart))+'/yr']);
+    }
+    $('detailGrid').innerHTML = detail.map(function(d){
+      return '<div class="detail-item"><div class="k">'+d[0]+'</div><div class="v">'+d[1]+'</div></div>';
+    }).join('');
+  }
+
+  /* ---------------- tax page rendering ---------------- */
+  function renderTaxPage(){
+    var m = computeModel();
+    var province = $('province').value;
+    var goalAnnual = Math.max(num('goalMonthlyIncome'), 0) * 12;
+    var plan = computeTaxPlan(m, province, goalAnnual);
+
+    $('taxTotalHero').textContent = fmtMoney0.format(Math.round(plan.totalTax));
+    $('taxRateHero').textContent = fmtNum0.format(Math.round(plan.effectiveRate*100)) + '%';
+    $('taxTotalSub').textContent = 'over '+plan.rows.length+' years, in '+TAX_DATA.provinces[province].name;
+
+    var svg = $('chartTax');
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox','0 0 '+CW+' '+CH);
+    var data = plan.rows;
+    if(data.length){
+      var scales = buildScales(data, 'age', ['grossIncome','afterTax']);
+      drawAxes(svg, scales);
+      svg.appendChild(svgEl('path', { d: pathFor(data,'age','grossIncome',scales), class:'series-line', style:'stroke:var(--db)' }));
+      svg.appendChild(svgEl('path', { d: pathFor(data,'age','afterTax',scales), class:'series-line', style:'stroke:var(--dc)' }));
+      var last = data[data.length-1];
+      [['db','grossIncome'],['dc','afterTax']].forEach(function(pair){
+        var color = 'var(--'+pair[0]+')';
+        svg.appendChild(svgEl('circle', { cx:scales.x(last.age), cy:scales.y(last[pair[1]]), r:4, fill:color, class:'end-dot' }));
+      });
+      attachHover(svg, $('tooltipTax'), data, scales, [
+        {key:'grossIncome', color:'var(--db)', label:'Gross income'},
+        {key:'afterTax', color:'var(--dc)', label:'After-tax income'}
+      ]);
+    }
+
+    var rows = plan.rows.map(function(r){
+      return '<tr><td>'+r.age+'</td><td style="text-align:left;">'+r.phase+'</td>'
+        + '<td>'+fmtMoney0.format(Math.round(r.automatic))+'</td>'
+        + '<td>'+fmtMoney0.format(Math.round(r.additionalRegistered))+'</td>'
+        + '<td>'+fmtMoney0.format(Math.round(r.cashW+r.stockW))+'</td>'
+        + '<td>'+fmtMoney0.format(Math.round(r.tfsaW))+'</td>'
+        + '<td>'+fmtMoney0.format(Math.round(r.grossIncome))+'</td>'
+        + '<td>'+fmtMoney0.format(Math.round(r.tax))+'</td>'
+        + '<td>'+fmtMoney0.format(Math.round(r.afterTax))+'</td></tr>';
+    }).join('');
+    $('taxTable').innerHTML = '<thead><tr><th>Age</th><th style="text-align:left;">Phase</th><th>CPP/OAS/DB/RRIF-min</th>'
+      + '<th>+RRSP/RRIF</th><th>+Cash/stock</th><th>+TFSA</th><th>Gross</th><th>Tax</th><th>After-tax</th></tr></thead>'
+      + '<tbody>'+rows+'</tbody>';
+  }
+
+  (function(){
+    var sel = $('province'), html = '';
+    PROVINCE_ORDER.forEach(function(code){ html += '<option value="'+code+'">'+TAX_DATA.provinces[code].name+'</option>'; });
+    sel.innerHTML = html;
+    var saved; try{ saved = localStorage.getItem('rp-province'); }catch(e){}
+    if(saved && TAX_DATA.provinces[saved]) sel.value = saved; else sel.value = 'ON';
+    sel.addEventListener('change', function(){
+      try{ localStorage.setItem('rp-province', sel.value); }catch(e){}
+      renderTaxPage();
+    });
+  })();
+
+  window.addEventListener('resize', render);
+  render();
+})();
+</script>

@@ -1,0 +1,5 @@
+# Unrelated projects sharing this folder
+type-to-survive/
+
+# Claude Code local settings
+.claude/
