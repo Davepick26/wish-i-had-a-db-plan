@@ -3,3 +3,7 @@ type-to-survive/
 
 # Claude Code local settings
 .claude/
+
+# Electron app build artifacts
+node_modules/
+dist/

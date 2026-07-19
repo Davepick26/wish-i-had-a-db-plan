@@ -5,6 +5,7 @@ contribution (DC) plan who want to compare their projected retirement income aga
 a theoretical defined benefit (DB) pension.
 
 Open `retirement-planner.html` directly in a browser — no build step, no dependencies.
+It's also packaged as a Windows desktop app via Electron (see below).
 
 ## Features
 
@@ -19,3 +20,13 @@ Open `retirement-planner.html` directly in a browser — no build step, no depen
 
 This is an educational model, not financial or tax advice — see the in-app
 disclaimers for the specific simplifications each page makes.
+
+## Desktop app (Windows)
+
+Requires [Node.js](https://nodejs.org).
+
+```
+npm install       # first time only
+npm start         # run the app
+npm run dist      # build a Windows installer into dist/
+```

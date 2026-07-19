@@ -1,0 +1,34 @@
+{
+  "name": "wish-i-had-a-db-plan",
+  "version": "1.0.0",
+  "description": "A retirement income planner for Canadians on a DC plan comparing their projected income against a theoretical DB pension.",
+  "main": "main.js",
+  "author": "Davepick26",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^32.3.3",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.davepick26.wishihadadbplan",
+    "productName": "Wish I Had a DB Plan",
+    "files": [
+      "main.js",
+      "retirement-planner.html",
+      "icon.ico"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
