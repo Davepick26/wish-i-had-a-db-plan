@@ -833,11 +833,10 @@
 
   <footer class="disclosure">
     <strong>This is a simplified educational model, not financial or actuarial advice.</strong>
-    The DC-vs-DB comparison above is pre-tax throughout. Only the goal check is after-tax: it applies a quick combined
-    federal + provincial estimate (splitting income with a spouse if enabled) to year-one taxable income, using the
-    province set on the tax-optimized withdrawal page (Ontario by default) — it ignores OAS clawback and, when married
-    without splitting, taxes both incomes as if pooled rather than giving each spouse their own bracket. See the
-    tax-optimized withdrawal page for a fuller year-by-year model. Otherwise this page ignores income tax on withdrawals,
+    The DC-vs-DB comparison above is pre-tax throughout. Only the goal check is after-tax: it runs the same
+    tax-optimized withdrawal engine as the tax-optimized withdrawal page for year one only — same province (Ontario by
+    default; change it on that page), same bracket-filling order, same income-splitting and OAS clawback handling — so
+    it should always agree with that page's first row. Otherwise this page ignores income tax on withdrawals,
     capital-gains treatment on non-registered stock, RRSP/TFSA contribution-room limits, and early-retirement reductions.
     DC and RRSP balances (and a spouse's, if married) are combined into one registered pool for retirement drawdown, using
     a blended return — TFSA, stocks, cash and SERP form a second pool that always draws down at the chosen withdrawal
@@ -1245,23 +1244,14 @@
   function oasClawback(income, oasReceived){
     return Math.min(oasReceived, Math.max(0, income - TAX_DATA.oasClawbackThreshold) * TAX_DATA.oasClawbackRate);
   }
+  /* Single source of truth for province: the live <select> on the tax page always
+     wins when it exists, so the planner's goal check can never show a stale
+     province after a save/load (which sets .value without firing 'change'). */
   function getSelectedProvince(){
+    var sel = $('province');
+    if(sel && sel.value && TAX_DATA.provinces[sel.value]) return sel.value;
     var saved; try{ saved = localStorage.getItem('rp-province'); }catch(e){}
     return (saved && TAX_DATA.provinces[saved]) ? saved : 'ON';
-  }
-  /* Quick single-year after-tax estimate for the goal check (not the full year-by-year
-     engine on the tax page): taxes the taxable portion of year-one income at the
-     selected province's combined brackets, splitting it with a spouse if income-split
-     is on. Ignores OAS clawback and per-spouse BPAs when not splitting — see the
-     tax-optimized withdrawal page for a fuller model. */
-  function estimateAfterTaxYear1(m){
-    if(!m.decumulation.length) return 0;
-    var row = m.decumulation[0];
-    var province = getSelectedProvince();
-    var taxable = row.taxableIncomeNominal, tax;
-    if(m.married && m.incomeSplit){ tax = combinedTax(taxable/2, province)*2; }
-    else { tax = combinedTax(taxable, province); }
-    return taxable - tax + row.nonTaxableIncomeNominal;
   }
 
   function computeModel(){
@@ -1911,7 +1901,9 @@
     $('dbHeroSub').textContent = (m.cppBridge ? 'formula pension + bridge to 65' : 'formula pension income') + ' + CPP/OAS';
 
     var goalMonthly = Math.max(num('goalMonthlyIncome'), 0);
-    var actualMonthly = estimateAfterTaxYear1(m) / 12;
+    var goalPreviewProvince = getSelectedProvince();
+    var goalPreviewPlan = computeTaxPlan(m, goalPreviewProvince, goalMonthly*12);
+    var actualMonthly = (goalPreviewPlan.rows.length ? goalPreviewPlan.rows[0].afterTax : 0) / 12;
     $('goalCheckGoal').innerHTML = fmtMoney0.format(Math.round(goalMonthly))+'<span>/mo</span>';
     $('goalCheckActual').innerHTML = fmtMoney0.format(Math.round(actualMonthly))+'<span>/mo</span>';
     var ratio = goalMonthly > 0 ? actualMonthly/goalMonthly : 1;
@@ -1921,9 +1913,9 @@
     fill.style.background = fillColor;
     var goalDiff = actualMonthly - goalMonthly;
     $('goalCheckNote').textContent = (goalDiff >= 0
-      ? 'On track — your savings are projected to beat your after-tax goal by '+fmtMoney0.format(Math.round(goalDiff))+'/mo in year one.'
-      : 'Short of after-tax goal by '+fmtMoney0.format(Math.round(Math.abs(goalDiff)))+'/mo in year one, based on your DC, RRSP, TFSA, stocks and cash (excludes the theoretical DB).')
-      + ' Estimated at combined federal + '+TAX_DATA.provinces[getSelectedProvince()].name+' tax rates (approximate; set your province on the tax-optimized withdrawal page).';
+      ? 'On track — your savings are projected to meet your after-tax goal in year one.'
+      : 'Short of after-tax goal by '+fmtMoney0.format(Math.round(Math.abs(goalDiff)))+'/mo in year one, based on your DC, RRSP, TFSA, stocks, cash and SERP (excludes the theoretical DB).')
+      + ' Uses the same tax-optimized withdrawal order and '+TAX_DATA.provinces[goalPreviewProvince].name+' tax rates as the tax-optimized withdrawal page — change province there.';
 
     var diff = m.dcYear1Income - dbYear1Income;
     var pct = dbYear1Income > 0 ? Math.abs(diff)/dbYear1Income*100 : 0;
