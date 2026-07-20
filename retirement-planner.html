@@ -374,6 +374,7 @@
   .meter-track{ height:8px; border-radius:4px; background: var(--line); overflow:hidden; margin: 12px 0 2px; }
   .meter-fill{ height:100%; border-radius:4px; transition: width 0.25s, background 0.25s; }
   #goalCheckNote{ font-size:11.5px; color: var(--ink-muted); line-height:1.5; }
+  #saveLoadNote{ font-size:11px; color: var(--ink-muted); line-height:1.5; }
 </style>
 
 <div class="goal-screen" id="goalScreen">
@@ -719,7 +720,15 @@
         </div>
       </div>
 
-      <div class="reset-row"><button type="button" id="resetBtn">Reset to defaults</button></div>
+      <div class="reset-row" style="justify-content:space-between; align-items:center;">
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="toggle-btn" id="saveFileBtn">💾 Save to file</button>
+          <button type="button" class="toggle-btn" id="loadFileBtn">📂 Load from file</button>
+          <input type="file" id="loadFileInput" accept="application/json,.json" style="display:none;">
+        </div>
+        <button type="button" id="resetBtn">Reset to defaults</button>
+      </div>
+      <div class="hint" id="saveLoadNote" style="margin-top:6px;">Your inputs are also remembered automatically in this browser/app — save to a file if you want a backup, a named scenario, or to move your plan to another device.</div>
     </div>
 
     <!-- ===================== RESULTS ===================== -->
@@ -1045,6 +1054,66 @@
     syncDecumFields();
     syncMarried();
     render();
+  });
+
+  /* ---------------- save / load to file ---------------- */
+  var CHECKBOX_IDS = ['dbIndexed', 'cppBridge', 'married', 'incomeSplit'];
+  function collectState(){
+    var state = { kind: 'wish-i-had-a-db-plan', version: 1, savedAt: new Date().toISOString() };
+    ids.concat(['decumMethod']).forEach(function(id){ state[id] = $(id).value; });
+    CHECKBOX_IDS.forEach(function(id){ state[id] = $(id).checked; });
+    state.goalMonthlyIncome = $('goalMonthlyIncome').value;
+    if($('province')) state.province = $('province').value;
+    return state;
+  }
+  function applyState(state){
+    ids.concat(['decumMethod']).forEach(function(id){
+      if(state[id] !== undefined && $(id)) $(id).value = state[id];
+    });
+    CHECKBOX_IDS.forEach(function(id){
+      if(state[id] !== undefined && $(id)) $(id).checked = state[id];
+    });
+    if(state.goalMonthlyIncome !== undefined) $('goalMonthlyIncome').value = state.goalMonthlyIncome;
+    if(state.province !== undefined && $('province')) $('province').value = state.province;
+    $('bridgeAmountField').style.display = $('cppBridge').checked ? '' : 'none';
+    syncMarried();
+    syncDecumFields();
+    render();
+  }
+  function autoSaveState(){
+    try{ localStorage.setItem('rp-state', JSON.stringify(collectState())); }catch(e){}
+  }
+
+  $('saveFileBtn').addEventListener('click', function(){
+    var state = collectState();
+    var blob = new Blob([JSON.stringify(state, null, 2)], { type:'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'wish-i-had-a-db-plan-' + new Date().toISOString().slice(0,10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    $('saveLoadNote').textContent = 'Saved. Your inputs are also remembered automatically in this browser/app.';
+  });
+  $('loadFileBtn').addEventListener('click', function(){ $('loadFileInput').click(); });
+  $('loadFileInput').addEventListener('change', function(e){
+    var file = e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var state = JSON.parse(String(reader.result));
+        applyState(state);
+        autoSaveState();
+        $('saveLoadNote').textContent = 'Loaded "' + file.name + '". Your inputs are also remembered automatically in this browser/app.';
+      }catch(err){
+        $('saveLoadNote').textContent = 'Could not read that file — make sure it’s a plan file saved from this app.';
+      }
+    };
+    reader.readAsText(file);
+    $('loadFileInput').value = '';
   });
 
   document.querySelectorAll('input').forEach(function(inp){
@@ -1801,6 +1870,8 @@
     $('detailGrid').innerHTML = detail.map(function(d){
       return '<div class="detail-item"><div class="k">'+d[0]+'</div><div class="v">'+d[1]+'</div></div>';
     }).join('');
+
+    autoSaveState();
   }
 
   /* ---------------- tax page rendering ---------------- */
@@ -1859,6 +1930,12 @@
       try{ localStorage.setItem('rp-province', sel.value); }catch(e){}
       renderTaxPage();
     });
+  })();
+
+  (function(){
+    var saved; try{ saved = localStorage.getItem('rp-state'); }catch(e){}
+    if(!saved) return;
+    try{ applyState(JSON.parse(saved)); }catch(e){}
   })();
 
   window.addEventListener('resize', render);
