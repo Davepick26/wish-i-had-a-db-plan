@@ -987,7 +987,7 @@
     year's other income; the after-tax proceeds are added to cash from then on. Each year otherwise draws mandatory
     income first (CPP, OAS, and RRIF minimums from age 71), then tops up any after-tax shortfall from RRSP/RRIF —
     grossed up by the marginal rate at each step so the after-tax result lands on target, while staying within the
-    current combined federal+provincial bracket — then cash, then non-registered stock, then TFSA last (both tax-free
+    current combined federal+provincial bracket — then TFSA, then cash, then non-registered stock last (all tax-free
     here, so no grossing needed). The grossing-up math is exact within one bracket step and approximate if a single
     year's shortfall spans more than two brackets, and it does not account for OAS clawback when sizing withdrawals
     (clawback is still applied to the final tax figure, so after-tax results can land slightly under goal in
@@ -1606,10 +1606,9 @@
      those represent ongoing spending income only. Otherwise, each year,
      mandatory income (CPP, OAS, and RRIF minimums from 71 on) is drawn first.
      Any shortfall against the goal is topped up from RRSP/RRIF while it stays
-     within the current tax bracket, then cash, then non-registered stock,
-     then TFSA (kept for last, tax-free growth). If income splitting is on,
-     the household's combined taxable retirement income is pooled and divided
-     evenly for tax purposes. */
+     within the current tax bracket, then TFSA, then cash, then non-registered
+     stock. If income splitting is on, the household's combined taxable
+     retirement income is pooled and divided evenly for tax purposes. */
   function computeTaxPlan(m, province, goalAnnual){
     var retireAge = m.retireAge, planToAge = m.planToAge, inflation = m.inflation;
     var married = m.married, split = m.incomeSplit;
@@ -1691,12 +1690,13 @@
 
       /* targetThisYear and remainingNeed are AFTER-TAX amounts (the goal is after-tax).
          Registered withdrawals are grossed up by the marginal rate they'd face so the
-         after-tax result lands on target; cash/stock/TFSA need no grossing (tax-free here).
-         Order: RRSP/RRIF only up to the CURRENT bracket ceiling first, then cash, then
-         stock, then TFSA (all tax-free, so no reason to cross a bracket for them) — only
-         reaching further into RRSP/RRIF beyond the ceiling as a last resort once every
-         tax-free source is exhausted and there's still a shortfall. SERP isn't part of
-         this ongoing pool — see the lump-sum handling above the year loop. */
+         after-tax result lands on target; TFSA/cash/stock need no grossing (tax-free here).
+         Order: RRSP/RRIF only up to the CURRENT bracket ceiling first, then TFSA, then
+         cash, then non-registered stock (all tax-free, so no reason to cross a bracket
+         for them) — only reaching further into RRSP/RRIF beyond the ceiling as a last
+         resort once every tax-free source is exhausted and there's still a shortfall.
+         SERP isn't part of this ongoing pool — see the lump-sum handling above the year
+         loop. */
       var ceiling, order, autos, avail, added;
       if(married && split){
         /* The SERP lump sum is saved to cash, not spent, so it shouldn't count as
@@ -1734,13 +1734,13 @@
       }
 
       remainingNeed = Math.max(0, remainingNeed);
-      var cashTotal = pCash+sCash, stockTotal = pStock+sStock, tfsaTotal = pTfsa+sTfsa;
+      var tfsaTotal = pTfsa+sTfsa, cashTotal = pCash+sCash, stockTotal = pStock+sStock;
+      var tfsaW = Math.min(remainingNeed, tfsaTotal); remainingNeed = Math.max(0, remainingNeed-tfsaW);
       var cashW = Math.min(remainingNeed, cashTotal); remainingNeed = Math.max(0, remainingNeed-cashW);
       var stockW = Math.min(remainingNeed, stockTotal); remainingNeed = Math.max(0, remainingNeed-stockW);
-      var tfsaW = Math.min(remainingNeed, tfsaTotal); remainingNeed = Math.max(0, remainingNeed-tfsaW);
+      var tfsaSplit = splitDraw(pTfsa, sTfsa, tfsaW);
       var cashSplit = splitDraw(pCash, sCash, cashW);
       var stockSplit = splitDraw(pStock, sStock, stockW);
-      var tfsaSplit = splitDraw(pTfsa, sTfsa, tfsaW);
 
       /* Last resort: every tax-free source is exhausted but the after-tax goal still
          isn't met — reach further into RRSP/RRIF, now crossing into a higher bracket. */
@@ -2142,7 +2142,7 @@
     if(taxShortfallRow){
       var taxYearsShort = m.planToAge - taxShortfallRow.age;
       taxChipWrap.innerHTML = '<div class="status-chip critical"><span class="dot"></span>'
-        + '<span>At these settings, even after fully drawing down RRSP/RRIF, cash, stock and TFSA, this withdrawal order can’t fully cover your after-tax goal starting at age <strong>'+taxShortfallRow.age+'</strong> — '
+        + '<span>At these settings, even after fully drawing down RRSP/RRIF, TFSA, cash and stock, this withdrawal order can’t fully cover your after-tax goal starting at age <strong>'+taxShortfallRow.age+'</strong> — '
         + taxYearsShort+' years before age '+m.planToAge+'.</span></div>';
     } else {
       taxChipWrap.innerHTML = '';
@@ -2202,14 +2202,14 @@
           + '<td>'+fmtMoney0.format(Math.round(p.automatic))+'</td>'
           + '<td>'+fmtMoney0.format(Math.round(p.ltip||0))+'</td>'
           + '<td>'+fmtMoney0.format(Math.round(p.additionalRegistered))+'</td>'
-          + '<td>'+fmtMoney0.format(Math.round(p.cashW+p.stockW))+'</td>'
           + '<td>'+fmtMoney0.format(Math.round(p.tfsaW))+'</td>'
+          + '<td>'+fmtMoney0.format(Math.round(p.cashW+p.stockW))+'</td>'
           + '<td>'+fmtMoney0.format(Math.round(p.gross))+'</td>'
           + '<td>'+fmtMoney0.format(Math.round(p.tax))+'</td>'
           + '<td>'+fmtMoney0.format(Math.round(p.afterTax))+'</td></tr>';
       }).join('');
       $(tableId).innerHTML = '<thead><tr><th>Age</th><th style="text-align:left;">Phase</th><th>CPP/OAS/RRIF-min</th>'
-        + '<th>+LTIP</th><th>+RRSP/RRIF</th><th>+Cash/stock</th><th>+TFSA</th><th>Gross</th><th>Tax</th><th>After-tax</th></tr></thead>'
+        + '<th>+LTIP</th><th>+RRSP/RRIF</th><th>+TFSA</th><th>+Cash/stock</th><th>Gross</th><th>Tax</th><th>After-tax</th></tr></thead>'
         + '<tbody>'+body+'</tbody>';
     }
 
