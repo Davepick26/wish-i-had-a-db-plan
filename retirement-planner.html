@@ -897,8 +897,9 @@
 
   <footer class="disclosure">
     <strong>This withdrawal order is a simplified rule of thumb, not a tax optimization or professional advice.</strong>
-    Your goal (set on the planner page) is treated as an <strong>after-tax</strong> target. Each year draws mandatory
-    income first (CPP, OAS, DB, and RRIF minimums from age 71), then tops up any after-tax shortfall from RRSP/RRIF —
+    Your goal (set on the planner page) is treated as an <strong>after-tax</strong> target, funded from your real
+    accounts and benefits — the theoretical DB pension is a hypothetical comparison and isn't included here. Each year
+    draws mandatory income first (CPP, OAS, and RRIF minimums from age 71), then tops up any after-tax shortfall from RRSP/RRIF —
     grossed up by the marginal rate at each step so the after-tax result lands on target, while staying within the
     current combined federal+provincial bracket — then cash, then non-registered stock, then TFSA last (both tax-free
     here, so no grossing needed). The grossing-up math is exact within one bracket step and approximate if a single
@@ -1496,13 +1497,11 @@
       var age = retireAge+j;
       var infl = Math.pow(1+inflation, j);
       var targetThisYear = goalAnnual*infl;
-      var dbGrowth = m.dbIndexed ? infl : 1;
-      var dbThis = m.dbAnnualPension*dbGrowth + (age<65 ? m.bridgeAmount*dbGrowth : 0);
 
       var pCpp = age>=m.primary.cppStartAge ? m.primary.cppAtStart*Math.pow(1+inflation, age-m.primary.cppStartAge) : 0;
       var pOas = age>=m.primary.oasStartAge ? m.primary.oasAtStart*Math.pow(1+inflation, age-m.primary.oasStartAge) : 0;
       var pRrifMin = age>=71 ? pReg*rrifFactor(age) : 0;
-      var pAuto = dbThis + pCpp + pOas + pRrifMin;
+      var pAuto = pCpp + pOas + pRrifMin;
 
       var sCpp=0, sOas=0, sRrifMin=0, sAuto=0;
       if(married){
@@ -1929,7 +1928,7 @@
         + '<td>'+fmtMoney0.format(Math.round(r.tax))+'</td>'
         + '<td>'+fmtMoney0.format(Math.round(r.afterTax))+'</td></tr>';
     }).join('');
-    $('taxTable').innerHTML = '<thead><tr><th>Age</th><th style="text-align:left;">Phase</th><th>CPP/OAS/DB/RRIF-min</th>'
+    $('taxTable').innerHTML = '<thead><tr><th>Age</th><th style="text-align:left;">Phase</th><th>CPP/OAS/RRIF-min</th>'
       + '<th>+RRSP/RRIF</th><th>+Cash/stock</th><th>+TFSA</th><th>Gross</th><th>Tax</th><th>After-tax</th></tr></thead>'
       + '<tbody>'+rows+'</tbody>';
   }
