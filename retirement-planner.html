@@ -560,6 +560,12 @@
                 <td><input id="spouseCashContrib" type="number" value="400" min="0" step="250"></td>
                 <td><input id="spouseCashReturn" type="number" value="2.5" min="0" max="15" step="0.1"></td>
               </tr>
+              <tr>
+                <td class="asset-name">SERP<br><span class="asset-sub">supplemental exec. plan</span></td>
+                <td><input id="spouseSerpBalance" type="number" value="0" min="0" step="500"></td>
+                <td><input id="spouseSerpContrib" type="number" value="0" min="0" step="250"></td>
+                <td><input id="spouseSerpReturn" type="number" value="5.0" min="0" max="15" step="0.1"></td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -630,10 +636,16 @@
                 <td><input id="cashContrib" type="number" value="500" min="0" step="250"></td>
                 <td><input id="cashReturn" type="number" value="2.5" min="0" max="15" step="0.1"></td>
               </tr>
+              <tr>
+                <td class="asset-name">SERP<br><span class="asset-sub">supplemental exec. plan</span></td>
+                <td><input id="serpBalance" type="number" value="0" min="0" step="500"></td>
+                <td><input id="serpContrib" type="number" value="0" min="0" step="250"></td>
+                <td><input id="serpReturn" type="number" value="5.0" min="0" max="15" step="0.1"></td>
+              </tr>
             </tbody>
           </table>
         </div>
-        <div class="hint" style="margin-top:8px;">Balances and returns in dollars and %/yr; annual add grows with salary growth, same as your DC contributions. RRSP shares the drawdown method below with your DC balance; TFSA, stocks and cash always draw down at the withdrawal rate below. Non-registered growth ignores capital-gains tax.</div>
+        <div class="hint" style="margin-top:8px;">Balances and returns in dollars and %/yr; annual add grows with salary growth, same as your DC contributions. RRSP shares the drawdown method below with your DC balance; TFSA, stocks and cash always draw down at the withdrawal rate below. Non-registered growth ignores capital-gains tax. SERP is an employer-provided supplemental retirement plan on top of registered limits — treated like RRSP for tax purposes on the tax-optimized withdrawal page, but with no CRA-mandated minimum withdrawal.</div>
       </div>
 
       <div class="card panel-card">
@@ -825,8 +837,10 @@
     tax-optimized withdrawal page for a fuller year-by-year model. Otherwise this page ignores income tax on withdrawals,
     capital-gains treatment on non-registered stock, RRSP/TFSA contribution-room limits, and early-retirement reductions.
     DC and RRSP balances (and a spouse's, if married) are combined into one registered pool for retirement drawdown, using
-    a blended return — TFSA, stocks and cash form a second pool that always draws down at the chosen withdrawal rate,
-    since CRA does not mandate minimum withdrawals on them. CPP and OAS are estimated from the amounts you enter (not
+    a blended return — TFSA, stocks, cash and SERP form a second pool that always draws down at the chosen withdrawal
+    rate here (SERP is taxable and gets treated separately from TFSA/stocks/cash on the tax-optimized withdrawal page,
+    since this page doesn't model tax at all), since CRA does not mandate minimum withdrawals on any of them. CPP and
+    OAS are estimated from the amounts you enter (not
     calculated from a contribution history), actuarially adjusted for your chosen start age, and added equally to both the
     savings and theoretical-DB income lines since you'd receive them regardless of pension type — OAS clawback is not
     applied here. If married, retirement age and income horizon are assumed shared between spouses, and the theoretical DB
@@ -908,8 +922,10 @@
     <strong>This withdrawal order is a simplified rule of thumb, not a tax optimization or professional advice.</strong>
     Your goal (set on the planner page) is treated as an <strong>after-tax</strong> target, funded from your real
     accounts and benefits — the theoretical DB pension is a hypothetical comparison and isn't included here. Each year
-    draws mandatory income first (CPP, OAS, and RRIF minimums from age 71), then tops up any after-tax shortfall from RRSP/RRIF —
-    grossed up by the marginal rate at each step so the after-tax result lands on target, while staying within the
+    draws mandatory income first (CPP, OAS, and RRIF minimums from age 71), then tops up any after-tax shortfall from
+    RRSP/RRIF and SERP together (RRSP first, since it's otherwise headed for mandatory RRIF withdrawals — SERP carries
+    no CRA-mandated minimum of its own) — grossed up by the marginal rate at each step so the after-tax result lands
+    on target, while staying within the
     current combined federal+provincial bracket — then cash, then non-registered stock, then TFSA last (both tax-free
     here, so no grossing needed). The grossing-up math is exact within one bracket step and approximate if a single
     year's shortfall spans more than two brackets, and it does not account for OAS clawback when sizing withdrawals
@@ -1022,12 +1038,14 @@
     "dcBalance","eeContrib","erContrib","dcReturn","dcFee","withdrawalRate",
     "tfsaBalance","tfsaContrib","tfsaReturn","rrspBalance","rrspContrib","rrspReturn",
     "stockBalance","stockContrib","stockReturn","cashBalance","cashContrib","cashReturn",
+    "serpBalance","serpContrib","serpReturn",
     "serviceToDate","accrualRate","avgYears","bridgeAmount",
     "cppAmount","cppStart","oasAmount","oasStart",
     "spouseCurrentAge","spouseSalary","spouseDcBalance","spouseEeContrib","spouseErContrib","spouseDcReturn","spouseDcFee",
     "spouseCppAmount","spouseCppStart","spouseOasAmount","spouseOasStart",
     "spouseTfsaBalance","spouseTfsaContrib","spouseTfsaReturn","spouseRrspBalance","spouseRrspContrib","spouseRrspReturn",
-    "spouseStockBalance","spouseStockContrib","spouseStockReturn","spouseCashBalance","spouseCashContrib","spouseCashReturn"];
+    "spouseStockBalance","spouseStockContrib","spouseStockReturn","spouseCashBalance","spouseCashContrib","spouseCashReturn",
+    "spouseSerpBalance","spouseSerpContrib","spouseSerpReturn"];
   var defaults = {};
   ids.forEach(function(id){ defaults[id] = $(id).value; });
   var checkboxDefaults = { dbIndexed:false, cppBridge:true, married:false, incomeSplit:true };
@@ -1268,12 +1286,13 @@
     var incomeSplit = married && $('incomeSplit').checked;
 
     var tfsaReturn = num('tfsaReturn')/100, rrspReturn = num('rrspReturn')/100,
-        stockReturn = num('stockReturn')/100, cashReturn = num('cashReturn')/100;
+        stockReturn = num('stockReturn')/100, cashReturn = num('cashReturn')/100, serpReturn = num('serpReturn')/100;
     var assetDefs = [
       { key:'tfsa', balance: Math.max(num('tfsaBalance'),0), contrib: Math.max(num('tfsaContrib'),0), ret: tfsaReturn },
       { key:'rrsp', balance: Math.max(num('rrspBalance'),0), contrib: Math.max(num('rrspContrib'),0), ret: rrspReturn },
       { key:'stock', balance: Math.max(num('stockBalance'),0), contrib: Math.max(num('stockContrib'),0), ret: stockReturn },
-      { key:'cash', balance: Math.max(num('cashBalance'),0), contrib: Math.max(num('cashContrib'),0), ret: cashReturn }
+      { key:'cash', balance: Math.max(num('cashBalance'),0), contrib: Math.max(num('cashContrib'),0), ret: cashReturn },
+      { key:'serp', balance: Math.max(num('serpBalance'),0), contrib: Math.max(num('serpContrib'),0), ret: serpReturn }
     ];
     var assetBal = {};
     assetDefs.forEach(function(a){ assetBal[a.key] = a.balance; });
@@ -1284,12 +1303,14 @@
     var spouseEeContrib = num('spouseEeContrib')/100, spouseErContrib = num('spouseErContrib')/100;
     var spouseDcNetReturn = Math.max(num('spouseDcReturn')/100 - num('spouseDcFee')/100, -0.99);
     var spouseTfsaReturn = num('spouseTfsaReturn')/100, spouseRrspReturn = num('spouseRrspReturn')/100,
-        spouseStockReturn = num('spouseStockReturn')/100, spouseCashReturn = num('spouseCashReturn')/100;
+        spouseStockReturn = num('spouseStockReturn')/100, spouseCashReturn = num('spouseCashReturn')/100,
+        spouseSerpReturn = num('spouseSerpReturn')/100;
     var spouseAssetDefs = [
       { key:'tfsa', balance: Math.max(num('spouseTfsaBalance'),0), contrib: Math.max(num('spouseTfsaContrib'),0), ret: spouseTfsaReturn },
       { key:'rrsp', balance: Math.max(num('spouseRrspBalance'),0), contrib: Math.max(num('spouseRrspContrib'),0), ret: spouseRrspReturn },
       { key:'stock', balance: Math.max(num('spouseStockBalance'),0), contrib: Math.max(num('spouseStockContrib'),0), ret: spouseStockReturn },
-      { key:'cash', balance: Math.max(num('spouseCashBalance'),0), contrib: Math.max(num('spouseCashContrib'),0), ret: spouseCashReturn }
+      { key:'cash', balance: Math.max(num('spouseCashBalance'),0), contrib: Math.max(num('spouseCashContrib'),0), ret: spouseCashReturn },
+      { key:'serp', balance: Math.max(num('spouseSerpBalance'),0), contrib: Math.max(num('spouseSerpContrib'),0), ret: spouseSerpReturn }
     ];
     var spouseAssetBal = {};
     spouseAssetDefs.forEach(function(a){ spouseAssetBal[a.key] = a.balance; });
@@ -1322,19 +1343,20 @@
         });
       }
 
-      var spouseTotalThisYear = married ? spouseDcBalRunning + spouseAssetBal.tfsa + spouseAssetBal.rrsp + spouseAssetBal.stock + spouseAssetBal.cash : 0;
+      var spouseTotalThisYear = married ? spouseDcBalRunning + spouseAssetBal.tfsa + spouseAssetBal.rrsp + spouseAssetBal.stock + spouseAssetBal.cash + spouseAssetBal.serp : 0;
       accumulation.push({
         age: currentAge+i+1, salary: salary, dcBalance: dcBal,
-        totalBalance: dcBal + assetBal.tfsa + assetBal.rrsp + assetBal.stock + assetBal.cash + spouseTotalThisYear
+        totalBalance: dcBal + assetBal.tfsa + assetBal.rrsp + assetBal.stock + assetBal.cash + assetBal.serp + spouseTotalThisYear
       });
     }
 
     var dcBalanceAtRetirement = dcBal;
     var tfsaAtRetirement = assetBal.tfsa, rrspAtRetirement = assetBal.rrsp,
-        stockAtRetirement = assetBal.stock, cashAtRetirement = assetBal.cash;
+        stockAtRetirement = assetBal.stock, cashAtRetirement = assetBal.cash, serpAtRetirement = assetBal.serp;
     var spouseDcAtRetirement = married ? spouseDcBalRunning : 0;
     var spouseTfsaAtRetirement = married ? spouseAssetBal.tfsa : 0, spouseRrspAtRetirement = married ? spouseAssetBal.rrsp : 0,
-        spouseStockAtRetirement = married ? spouseAssetBal.stock : 0, spouseCashAtRetirement = married ? spouseAssetBal.cash : 0;
+        spouseStockAtRetirement = married ? spouseAssetBal.stock : 0, spouseCashAtRetirement = married ? spouseAssetBal.cash : 0,
+        spouseSerpAtRetirement = married ? spouseAssetBal.serp : 0;
 
     var yearsOfService = serviceToDate + accumYears;
     var lastN = salaries.slice(Math.max(0, salaries.length-avgYears));
@@ -1357,10 +1379,11 @@
     var registeredReturn = registeredBalance > 0
       ? (dcBalanceAtRetirement*dcNetReturn + rrspAtRetirement*rrspReturn + spouseDcAtRetirement*spouseDcNetReturn + spouseRrspAtRetirement*spouseRrspReturn) / registeredBalance
       : dcNetReturn;
-    var otherBalance = tfsaAtRetirement + stockAtRetirement + cashAtRetirement + spouseTfsaAtRetirement + spouseStockAtRetirement + spouseCashAtRetirement;
+    var otherBalance = tfsaAtRetirement + stockAtRetirement + cashAtRetirement + serpAtRetirement
+      + spouseTfsaAtRetirement + spouseStockAtRetirement + spouseCashAtRetirement + spouseSerpAtRetirement;
     var otherReturn = otherBalance > 0
-      ? (tfsaAtRetirement*tfsaReturn + stockAtRetirement*stockReturn + cashAtRetirement*cashReturn
-         + spouseTfsaAtRetirement*spouseTfsaReturn + spouseStockAtRetirement*spouseStockReturn + spouseCashAtRetirement*spouseCashReturn) / otherBalance
+      ? (tfsaAtRetirement*tfsaReturn + stockAtRetirement*stockReturn + cashAtRetirement*cashReturn + serpAtRetirement*serpReturn
+         + spouseTfsaAtRetirement*spouseTfsaReturn + spouseStockAtRetirement*spouseStockReturn + spouseCashAtRetirement*spouseCashReturn + spouseSerpAtRetirement*spouseSerpReturn) / otherBalance
       : 0;
 
     var registeredYear1 = decumMethod==='rrif' ? registeredBalance*rrifFactor(retireAge) : registeredBalance*withdrawalRate;
@@ -1437,7 +1460,7 @@
       accumulation: accumulation, decumulation: decumulation, balanceTimeline: balanceTimeline,
       dcBalanceAtRetirement: dcBalanceAtRetirement,
       tfsaAtRetirement: tfsaAtRetirement, rrspAtRetirement: rrspAtRetirement,
-      stockAtRetirement: stockAtRetirement, cashAtRetirement: cashAtRetirement,
+      stockAtRetirement: stockAtRetirement, cashAtRetirement: cashAtRetirement, serpAtRetirement: serpAtRetirement,
       totalBalanceAtRetirement: registeredBalance + otherBalance,
       yearsOfService: yearsOfService,
       finalAvgEarnings: finalAvgEarnings, dbAnnualPension: dbAnnualPension,
@@ -1454,8 +1477,9 @@
       primary: {
         registeredAtRetirement: dcBalanceAtRetirement + rrspAtRetirement, registeredReturn: registeredReturn,
         dcAtRetirement: dcBalanceAtRetirement, rrspAtRetirement: rrspAtRetirement, dcReturn: dcNetReturn, rrspReturn: rrspReturn,
-        otherAtRetirement: tfsaAtRetirement + stockAtRetirement + cashAtRetirement,
+        otherAtRetirement: tfsaAtRetirement + stockAtRetirement + cashAtRetirement + serpAtRetirement,
         tfsaAtRetirement: tfsaAtRetirement, stockAtRetirement: stockAtRetirement, cashAtRetirement: cashAtRetirement,
+        serpAtRetirement: serpAtRetirement, serpReturn: serpReturn,
         tfsaReturn: tfsaReturn, stockReturn: stockReturn, cashReturn: cashReturn,
         cppAtStart: cppAtStart, oasAtStart: oasAtStart, cppStartAge: cppStartAge, oasStartAge: oasStartAge
       },
@@ -1463,8 +1487,9 @@
         registeredAtRetirement: spouseDcAtRetirement + spouseRrspAtRetirement,
         registeredReturn: (spouseDcAtRetirement+spouseRrspAtRetirement) > 0 ? (spouseDcAtRetirement*spouseDcNetReturn + spouseRrspAtRetirement*spouseRrspReturn)/(spouseDcAtRetirement+spouseRrspAtRetirement) : spouseDcNetReturn,
         dcAtRetirement: spouseDcAtRetirement, rrspAtRetirement: spouseRrspAtRetirement, dcReturn: spouseDcNetReturn, rrspReturn: spouseRrspReturn,
-        otherAtRetirement: spouseTfsaAtRetirement + spouseStockAtRetirement + spouseCashAtRetirement,
+        otherAtRetirement: spouseTfsaAtRetirement + spouseStockAtRetirement + spouseCashAtRetirement + spouseSerpAtRetirement,
         tfsaAtRetirement: spouseTfsaAtRetirement, stockAtRetirement: spouseStockAtRetirement, cashAtRetirement: spouseCashAtRetirement,
+        serpAtRetirement: spouseSerpAtRetirement, serpReturn: spouseSerpReturn,
         tfsaReturn: spouseTfsaReturn, stockReturn: spouseStockReturn, cashReturn: spouseCashReturn,
         cppAtStart: spouseCppAtStart, oasAtStart: spouseOasAtStart, cppStartAge: spouseCppStartAge, oasStartAge: spouseOasStartAge
       } : null
@@ -1474,7 +1499,7 @@
   /* ---------------- tax-optimized withdrawal simulation ----------------
      Heuristic (not a full optimizer): each year, mandatory income (CPP, OAS, DB,
      and RRIF minimums from 71 on) is drawn first. Any shortfall against the goal
-     is topped up from RRSP/RRIF while it stays within the current tax bracket,
+     is topped up from RRSP/RRIF and SERP while it stays within the current tax bracket,
      then cash, then non-registered stock, then TFSA (kept for last, tax-free
      growth). If income splitting is on, the household's combined taxable
      retirement income is pooled and divided evenly for tax purposes. */
@@ -1483,13 +1508,15 @@
     var married = m.married, split = m.incomeSplit;
 
     var pReg = m.primary.registeredAtRetirement, pRegRet = m.primary.registeredReturn;
+    var pSerp = m.primary.serpAtRetirement, pSerpRet = m.primary.serpReturn;
     var pCash = m.primary.cashAtRetirement, pCashRet = m.primary.cashReturn;
     var pStock = m.primary.stockAtRetirement, pStockRet = m.primary.stockReturn;
     var pTfsa = m.primary.tfsaAtRetirement, pTfsaRet = m.primary.tfsaReturn;
 
-    var sReg=0,sRegRet=0,sCash=0,sCashRet=0,sStock=0,sStockRet=0,sTfsa=0,sTfsaRet=0;
+    var sReg=0,sRegRet=0,sSerp=0,sSerpRet=0,sCash=0,sCashRet=0,sStock=0,sStockRet=0,sTfsa=0,sTfsaRet=0;
     if(married){
       sReg = m.spouse.registeredAtRetirement; sRegRet = m.spouse.registeredReturn;
+      sSerp = m.spouse.serpAtRetirement; sSerpRet = m.spouse.serpReturn;
       sCash = m.spouse.cashAtRetirement; sCashRet = m.spouse.cashReturn;
       sStock = m.spouse.stockAtRetirement; sStockRet = m.spouse.stockReturn;
       sTfsa = m.spouse.tfsaAtRetirement; sTfsaRet = m.spouse.tfsaReturn;
@@ -1521,15 +1548,20 @@
       }
 
       var householdAuto = pAuto + sAuto;
-      var pRegAvail = Math.max(0, pReg - pRrifMin), sRegAvail = married ? Math.max(0, sReg - sRrifMin) : 0;
+      /* RRSP/RRIF and SERP are both fully taxable discretionary sources with no
+         tax-free benefit, so they're bracket-filled together as one "taxable" pool —
+         SERP carries no CRA-mandated minimum of its own, unlike RRSP/RRIF from 71. */
+      var pRegRoom = Math.max(0, pReg - pRrifMin), pSerpRoom = pSerp, pRegAvail = pRegRoom + pSerpRoom;
+      var sRegRoom = married ? Math.max(0, sReg - sRrifMin) : 0, sSerpRoom = married ? sSerp : 0;
+      var sRegAvail = sRegRoom + sSerpRoom;
       var addP = 0, addS = 0;
 
       /* targetThisYear and remainingNeed are AFTER-TAX amounts (the goal is after-tax).
          Registered withdrawals are grossed up by the marginal rate they'd face so the
          after-tax result lands on target; cash/stock/TFSA need no grossing (tax-free here).
-         Order: RRSP/RRIF only up to the CURRENT bracket ceiling first, then cash, then
+         Order: RRSP/SERP only up to the CURRENT bracket ceiling first, then cash, then
          stock, then TFSA (all tax-free, so no reason to cross a bracket for them) — only
-         reaching further into RRSP/RRIF beyond the ceiling as a last resort once every
+         reaching further into RRSP/SERP beyond the ceiling as a last resort once every
          tax-free source is exhausted and there's still a shortfall. */
       var ceiling, order, autos, avail, added;
       if(married && split){
@@ -1570,7 +1602,7 @@
       var tfsaSplit = splitDraw(pTfsa, sTfsa, tfsaW);
 
       /* Last resort: every tax-free source is exhausted but the after-tax goal still
-         isn't met — reach further into RRSP/RRIF, now crossing into a higher bracket. */
+         isn't met — reach further into RRSP/RRIF and SERP, now crossing into a higher bracket. */
       if(remainingNeed > 0){
         if(married && split){
           var pRoom2 = pRegAvail-addP, sRoom2 = sRegAvail-addS, moreAvail = pRoom2+sRoom2;
@@ -1590,6 +1622,11 @@
           addP = added.p; addS = married ? added.s : 0;
         }
       }
+
+      /* Split each person's combined RRSP+SERP draw back into its two sources,
+         RRSP first (its balance is otherwise headed for mandatory RRIF withdrawals). */
+      var pFromReg = Math.min(addP, pRegRoom), pFromSerp = addP - pFromReg;
+      var sFromReg = Math.min(addS, sRegRoom), sFromSerp = addS - sFromReg;
 
       var pTaxable = pAuto+addP, sTaxable = married ? (sAuto+addS) : 0;
       var taxP, taxS, clawbackP, clawbackS;
@@ -1631,8 +1668,12 @@
         } : null
       });
 
-      pReg = Math.max(pReg-pRrifMin-addP, 0) * (1+pRegRet);
-      if(married) sReg = Math.max(sReg-sRrifMin-addS, 0) * (1+sRegRet);
+      pReg = Math.max(pReg-pRrifMin-pFromReg, 0) * (1+pRegRet);
+      pSerp = Math.max(pSerp-pFromSerp, 0) * (1+pSerpRet);
+      if(married){
+        sReg = Math.max(sReg-sRrifMin-sFromReg, 0) * (1+sRegRet);
+        sSerp = Math.max(sSerp-sFromSerp, 0) * (1+sSerpRet);
+      }
       pCash = Math.max(pCash-cashSplit.fromP, 0)*(1+pCashRet); sCash = Math.max(sCash-cashSplit.fromS, 0)*(1+sCashRet);
       pStock = Math.max(pStock-stockSplit.fromP, 0)*(1+pStockRet); sStock = Math.max(sStock-stockSplit.fromS, 0)*(1+sStockRet);
       pTfsa = Math.max(pTfsa-tfsaSplit.fromP, 0)*(1+pTfsaRet); sTfsa = Math.max(sTfsa-tfsaSplit.fromS, 0)*(1+sTfsaRet);
@@ -1896,6 +1937,7 @@
       ['TFSA balance at retirement', fmtMoney0.format(Math.round(m.tfsaAtRetirement))],
       ['Stocks balance at retirement', fmtMoney0.format(Math.round(m.stockAtRetirement))],
       ['Cash balance at retirement', fmtMoney0.format(Math.round(m.cashAtRetirement))],
+      ['SERP balance at retirement', fmtMoney0.format(Math.round(m.serpAtRetirement))],
       ['Total savings at retirement', fmtMoney0.format(Math.round(m.totalBalanceAtRetirement))],
       ['Total DC contributions (employee + employer)', fmtMoney0.format(Math.round(m.totalContrib))],
       ['Your CPP + OAS at start', fmtMoney0.format(Math.round(m.cppAtStart+m.oasAtStart))+'/yr']
@@ -1956,7 +1998,7 @@
           + '<td>'+fmtMoney0.format(Math.round(p.afterTax))+'</td></tr>';
       }).join('');
       $(tableId).innerHTML = '<thead><tr><th>Age</th><th style="text-align:left;">Phase</th><th>CPP/OAS/RRIF-min</th>'
-        + '<th>+RRSP/RRIF</th><th>+Cash/stock</th><th>+TFSA</th><th>Gross</th><th>Tax</th><th>After-tax</th></tr></thead>'
+        + '<th>+RRSP/SERP</th><th>+Cash/stock</th><th>+TFSA</th><th>Gross</th><th>Tax</th><th>After-tax</th></tr></thead>'
         + '<tbody>'+body+'</tbody>';
     }
 
