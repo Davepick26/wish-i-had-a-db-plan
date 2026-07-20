@@ -1518,32 +1518,30 @@
 
       /* targetThisYear and remainingNeed are AFTER-TAX amounts (the goal is after-tax).
          Registered withdrawals are grossed up by the marginal rate they'd face so the
-         after-tax result lands on target; cash/stock/TFSA need no grossing (tax-free here). */
+         after-tax result lands on target; cash/stock/TFSA need no grossing (tax-free here).
+         Order: RRSP/RRIF only up to the CURRENT bracket ceiling first, then cash, then
+         stock, then TFSA (all tax-free, so no reason to cross a bracket for them) — only
+         reaching further into RRSP/RRIF beyond the ceiling as a last resort once every
+         tax-free source is exhausted and there's still a shortfall. */
+      var ceiling, order, autos, avail, added;
       if(married && split){
         var autoAfterTax = householdAuto - 2*combinedTax(householdAuto/2, province);
         var remainingNeed = Math.max(0, targetThisYear - autoAfterTax);
         var basis = householdAuto/2;
-        var ceiling = combinedBracketCeiling(basis, province);
+        ceiling = combinedBracketCeiling(basis, province);
         var rate1 = combinedMarginalRate(basis, province);
         var totalRoom = Math.max(0, 2*ceiling - householdAuto);
         var totalAvail = pRegAvail + sRegAvail;
         var addTotal = Math.min(rate1<1 ? remainingNeed/(1-rate1) : totalRoom, totalRoom, totalAvail);
         if(totalAvail>0){ addP = addTotal*(pRegAvail/totalAvail); addS = addTotal-addP; }
         remainingNeed -= addTotal*(1-rate1);
-        var pRoom2 = pRegAvail-addP, sRoom2 = sRegAvail-addS, moreAvail = pRoom2+sRoom2;
-        if(remainingNeed>0 && moreAvail>0){
-          var rate2 = combinedMarginalRate(ceiling, province);
-          var more = Math.min(rate2<1 ? remainingNeed/(1-rate2) : moreAvail, moreAvail);
-          var moreP = more*(pRoom2/moreAvail), moreS = more-moreP;
-          addP += moreP; addS += moreS; remainingNeed -= more*(1-rate2);
-        }
       } else {
         var autoAfterTax = married
           ? (pAuto - combinedTax(pAuto, province)) + (sAuto - combinedTax(sAuto, province))
           : (pAuto - combinedTax(pAuto, province));
         var remainingNeed = Math.max(0, targetThisYear - autoAfterTax);
-        var order = married ? (pAuto<=sAuto ? ['p','s'] : ['s','p']) : ['p'];
-        var autos = { p:pAuto, s:sAuto }, avail = { p:pRegAvail, s:sRegAvail }, added = { p:0, s:0 };
+        order = married ? (pAuto<=sAuto ? ['p','s'] : ['s','p']) : ['p'];
+        autos = { p:pAuto, s:sAuto }; avail = { p:pRegAvail, s:sRegAvail }; added = { p:0, s:0 };
         order.forEach(function(who){
           if(remainingNeed<=0) return;
           var ceil = combinedBracketCeiling(autos[who], province);
@@ -1552,12 +1550,6 @@
           var draw = Math.min(rate<1 ? remainingNeed/(1-rate) : room, room, avail[who]);
           added[who] += draw; autos[who] += draw; avail[who] -= draw; remainingNeed -= draw*(1-rate);
         });
-        order.forEach(function(who){
-          if(remainingNeed<=0) return;
-          var rate = combinedMarginalRate(autos[who], province);
-          var draw = Math.min(rate<1 ? remainingNeed/(1-rate) : avail[who], avail[who]);
-          added[who] += draw; avail[who] -= draw; remainingNeed -= draw*(1-rate);
-        });
         addP = added.p; addS = married ? added.s : 0;
       }
 
@@ -1565,6 +1557,28 @@
       var cashW = Math.min(remainingNeed, cashTotal); remainingNeed -= cashW;
       var stockW = Math.min(remainingNeed, stockTotal); remainingNeed -= stockW;
       var tfsaW = Math.min(remainingNeed, tfsaTotal); remainingNeed -= tfsaW;
+
+      /* Last resort: every tax-free source is exhausted but the after-tax goal still
+         isn't met — reach further into RRSP/RRIF, now crossing into a higher bracket. */
+      if(remainingNeed > 0){
+        if(married && split){
+          var pRoom2 = pRegAvail-addP, sRoom2 = sRegAvail-addS, moreAvail = pRoom2+sRoom2;
+          if(moreAvail>0){
+            var rate2 = combinedMarginalRate(ceiling, province);
+            var more = Math.min(rate2<1 ? remainingNeed/(1-rate2) : moreAvail, moreAvail);
+            var moreP = more*(pRoom2/moreAvail), moreS = more-moreP;
+            addP += moreP; addS += moreS; remainingNeed -= more*(1-rate2);
+          }
+        } else {
+          order.forEach(function(who){
+            if(remainingNeed<=0) return;
+            var rate = combinedMarginalRate(autos[who], province);
+            var draw = Math.min(rate<1 ? remainingNeed/(1-rate) : avail[who], avail[who]);
+            added[who] += draw; avail[who] -= draw; remainingNeed -= draw*(1-rate);
+          });
+          addP = added.p; addS = married ? added.s : 0;
+        }
+      }
 
       var pTaxable = pAuto+addP, sTaxable = married ? (sAuto+addS) : 0;
       var tax, clawback;
