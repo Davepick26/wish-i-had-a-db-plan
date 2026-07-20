@@ -789,6 +789,18 @@
       <div class="hint" id="saveLoadNote" style="margin-top:6px;">Your inputs are also remembered automatically in this browser/app — save to a file if you want a backup, a named scenario, or to move your plan to another device.</div>
     </div>
 
+    <div id="saveModalOverlay" class="no-print" style="display:none; position:fixed; inset:0; background:rgba(11,11,11,0.5); z-index:1000; align-items:center; justify-content:center; padding:20px;">
+      <div class="card panel-card" style="max-width:560px; width:100%; max-height:80vh; display:flex; flex-direction:column;">
+        <h2 style="margin-top:0;">Save your plan</h2>
+        <p class="hint" style="margin-bottom:8px;">Your browser here can't download a file directly. Select all the text below (or use the Copy button), paste it into a new text file, and save it with a <strong>.json</strong> extension — e.g. <span id="saveModalFilename"></span>.</p>
+        <textarea id="saveModalText" readonly style="flex:1; min-height:220px; font-family:monospace; font-size:11px; padding:10px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink); resize:vertical;"></textarea>
+        <div style="display:flex; gap:8px; margin-top:12px; justify-content:flex-end;">
+          <button type="button" class="toggle-btn" id="saveModalCopyBtn">Copy to clipboard</button>
+          <button type="button" id="saveModalCloseBtn">Close</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ===================== RESULTS ===================== -->
     <div class="results">
 
@@ -1164,19 +1176,61 @@
     try{ localStorage.setItem('rp-state', JSON.stringify(collectState())); }catch(e){}
   }
 
+  /* Our own packaged desktop app loads this file via Electron's loadFile() (a
+     file: URL) and has no sandbox restriction there, so a plain <a download>
+     click on a blob: URL works (paired with the native Save dialog in main.js).
+     The web/Artifact version is always served over https:, and — critically —
+     may itself be *viewed* inside Claude's own Electron-based desktop client,
+     so checking the user agent for "Electron" can't tell the two apart. Only
+     the file: vs. https: protocol reliably does. The Artifact case runs inside
+     a sandboxed iframe that generally blocks direct file downloads AND
+     window.open() popups outright, with no error thrown — both just silently
+     do nothing. The one thing that can't be blocked is plain DOM content, so
+     there we show the JSON in an on-page, selectable textarea instead and let
+     the user copy/paste it into a file themselves. */
+  var isElectron = location.protocol === 'file:';
+  function closeSaveModal(){ $('saveModalOverlay').style.display = 'none'; }
   $('saveFileBtn').addEventListener('click', function(){
     var state = collectState();
-    var blob = new Blob([JSON.stringify(state, null, 2)], { type:'application/json' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'wish-i-had-a-db-plan-' + new Date().toISOString().slice(0,10) + '.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-    $('saveLoadNote').textContent = 'Saved. Your inputs are also remembered automatically in this browser/app.';
+    var json = JSON.stringify(state, null, 2);
+    var filename = 'wish-i-had-a-db-plan-' + new Date().toISOString().slice(0,10) + '.json';
+    if(isElectron){
+      var blob = new Blob([json], { type:'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+      $('saveLoadNote').textContent = 'Saved. Your inputs are also remembered automatically in this browser/app.';
+    } else {
+      $('saveModalFilename').textContent = filename;
+      $('saveModalText').value = json;
+      $('saveModalOverlay').style.display = 'flex';
+      $('saveModalText').focus();
+      $('saveModalText').select();
+      $('saveLoadNote').textContent = 'Your inputs are also remembered automatically in this browser/app.';
+    }
   });
+  $('saveModalCopyBtn').addEventListener('click', function(){
+    var ta = $('saveModalText');
+    ta.focus(); ta.select();
+    var copied = false;
+    try{ copied = document.execCommand('copy'); }catch(e){}
+    if(!copied && navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(ta.value).then(function(){
+        $('saveModalCopyBtn').textContent = 'Copied!';
+        setTimeout(function(){ $('saveModalCopyBtn').textContent = 'Copy to clipboard'; }, 1500);
+      });
+    } else if(copied){
+      $('saveModalCopyBtn').textContent = 'Copied!';
+      setTimeout(function(){ $('saveModalCopyBtn').textContent = 'Copy to clipboard'; }, 1500);
+    }
+  });
+  $('saveModalCloseBtn').addEventListener('click', closeSaveModal);
+  $('saveModalOverlay').addEventListener('click', function(e){ if(e.target === $('saveModalOverlay')) closeSaveModal(); });
   $('loadFileBtn').addEventListener('click', function(){ $('loadFileInput').click(); });
   $('loadFileInput').addEventListener('change', function(e){
     var file = e.target.files[0];
