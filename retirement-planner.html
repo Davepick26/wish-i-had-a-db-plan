@@ -1524,13 +1524,16 @@
 
   /* ---------------- tax-optimized withdrawal simulation ----------------
      Heuristic (not a full optimizer): SERP pays out as a single taxable lump
-     sum in year one of retirement (not drawn down over multiple years); its
-     after-tax proceeds land in cash. Otherwise, each year, mandatory income
-     (CPP, OAS, and RRIF minimums from 71 on) is drawn first. Any shortfall
-     against the goal is topped up from RRSP/RRIF while it stays within the
-     current tax bracket, then cash, then non-registered stock, then TFSA
-     (kept for last, tax-free growth). If income splitting is on, the
-     household's combined taxable retirement income is pooled and divided
+     sum in year one of retirement (not drawn down over multiple years); it's
+     saved, not spent — its real (and fully counted) tax bill is paid that
+     year, and the after-tax remainder lands in cash, but neither the lump sum
+     nor its tax appear in that year's Gross/Tax/After-tax figures below, since
+     those represent ongoing spending income only. Otherwise, each year,
+     mandatory income (CPP, OAS, and RRIF minimums from 71 on) is drawn first.
+     Any shortfall against the goal is topped up from RRSP/RRIF while it stays
+     within the current tax bracket, then cash, then non-registered stock,
+     then TFSA (kept for last, tax-free growth). If income splitting is on,
+     the household's combined taxable retirement income is pooled and divided
      evenly for tax purposes. */
   function computeTaxPlan(m, province, goalAnnual){
     var retireAge = m.retireAge, planToAge = m.planToAge, inflation = m.inflation;
@@ -1555,14 +1558,19 @@
       var fromP = Math.min(w, pAmt);
       return { fromP: fromP, fromS: w - fromP };
     }
-    function taxForIncome(pInc, sInc){
+    /* Combined tax + OAS clawback for a given (primary, spouse) taxable-income pair,
+       under this household's married/split rules. Used both for the real tax bill
+       (which must include the SERP lump sum) and, separately, for a hypothetical
+       "as if the lump sum hadn't arrived" bill — the gap between the two is the
+       lump sum's own incremental tax. */
+    function taxClawbackFor(pInc, sInc, pOasVal, sOasVal){
       if(married && split){
-        var t = combinedTax((pInc+sInc)/2, province);
-        return { p: t, s: t };
+        var pooled = pInc+sInc, half = pooled/2, halfTax = combinedTax(half, province);
+        return { p: halfTax+oasClawback(half, pOasVal), s: halfTax+oasClawback(half, sOasVal) };
       } else if(married){
-        return { p: combinedTax(pInc, province), s: combinedTax(sInc, province) };
+        return { p: combinedTax(pInc, province)+oasClawback(pInc, pOasVal), s: combinedTax(sInc, province)+oasClawback(sInc, sOasVal) };
       }
-      return { p: combinedTax(pInc, province), s: 0 };
+      return { p: combinedTax(pInc, province)+oasClawback(pInc, pOasVal), s: 0 };
     }
 
     /* SERP is paid out as a single taxable lump sum in the first year of
@@ -1595,19 +1603,8 @@
         sAuto = sAutoBase + sLumpThisYear;
       }
 
-      /* After-tax value of this year's SERP lump sum(s), by the incremental tax
-         they cause on top of that year's other automatic income — credited to
-         cash at year-end (not immediately, so it can't also be double-counted
-         as a same-year withdrawal from the pool it just funded). */
-      var pLumpAfterTax = 0, sLumpAfterTax = 0;
-      if(pLumpThisYear > 0 || sLumpThisYear > 0){
-        var taxWith = taxForIncome(pAutoBase+pLumpThisYear, sAutoBase+sLumpThisYear);
-        var taxWithout = taxForIncome(pAutoBase, sAutoBase);
-        pLumpAfterTax = Math.max(0, pLumpThisYear - (taxWith.p - taxWithout.p));
-        sLumpAfterTax = Math.max(0, sLumpThisYear - (taxWith.s - taxWithout.s));
-      }
-
       var householdAuto = pAuto + sAuto;
+      var householdAutoBase = pAutoBase + sAutoBase;
       var pRegAvail = Math.max(0, pReg - pRrifMin);
       var sRegAvail = married ? Math.max(0, sReg - sRrifMin) : 0;
       var addP = 0, addS = 0;
@@ -1622,7 +1619,13 @@
          this ongoing pool — see the lump-sum handling above the year loop. */
       var ceiling, order, autos, avail, added;
       if(married && split){
-        var autoAfterTax = householdAuto - 2*combinedTax(householdAuto/2, province);
+        /* The SERP lump sum is saved to cash, not spent, so it shouldn't count as
+           already covering this year's spending goal — autoAfterTax (what the goal
+           still needs topping up against) uses ongoing income only. Bracket
+           positioning below still uses the true, lump-inclusive basis, since any
+           extra RRSP/RRIF drawn this year really does stack on top of the lump
+           for tax purposes. */
+        var autoAfterTax = householdAutoBase - 2*combinedTax(householdAutoBase/2, province);
         var remainingNeed = Math.max(0, targetThisYear - autoAfterTax);
         var basis = householdAuto/2;
         ceiling = combinedBracketCeiling(basis, province);
@@ -1634,8 +1637,8 @@
         remainingNeed -= addTotal*(1-rate1);
       } else {
         var autoAfterTax = married
-          ? (pAuto - combinedTax(pAuto, province)) + (sAuto - combinedTax(sAuto, province))
-          : (pAuto - combinedTax(pAuto, province));
+          ? (pAutoBase - combinedTax(pAutoBase, province)) + (sAutoBase - combinedTax(sAutoBase, province))
+          : (pAutoBase - combinedTax(pAutoBase, province));
         var remainingNeed = Math.max(0, targetThisYear - autoAfterTax);
         order = married ? (pAuto<=sAuto ? ['p','s'] : ['s','p']) : ['p'];
         autos = { p:pAuto, s:sAuto }; avail = { p:pRegAvail, s:sRegAvail }; added = { p:0, s:0 };
@@ -1650,10 +1653,11 @@
         addP = added.p; addS = married ? added.s : 0;
       }
 
+      remainingNeed = Math.max(0, remainingNeed);
       var cashTotal = pCash+sCash, stockTotal = pStock+sStock, tfsaTotal = pTfsa+sTfsa;
-      var cashW = Math.min(remainingNeed, cashTotal); remainingNeed -= cashW;
-      var stockW = Math.min(remainingNeed, stockTotal); remainingNeed -= stockW;
-      var tfsaW = Math.min(remainingNeed, tfsaTotal); remainingNeed -= tfsaW;
+      var cashW = Math.min(remainingNeed, cashTotal); remainingNeed = Math.max(0, remainingNeed-cashW);
+      var stockW = Math.min(remainingNeed, stockTotal); remainingNeed = Math.max(0, remainingNeed-stockW);
+      var tfsaW = Math.min(remainingNeed, tfsaTotal); remainingNeed = Math.max(0, remainingNeed-tfsaW);
       var cashSplit = splitDraw(pCash, sCash, cashW);
       var stockSplit = splitDraw(pStock, sStock, stockW);
       var tfsaSplit = splitDraw(pTfsa, sTfsa, tfsaW);
@@ -1681,26 +1685,28 @@
       }
 
       var pTaxable = pAuto+addP, sTaxable = married ? (sAuto+addS) : 0;
-      var taxP, taxS, clawbackP, clawbackS;
-      if(married && split){
-        var pooled = pTaxable+sTaxable, half = pooled/2, halfTax = combinedTax(half, province);
-        taxP = halfTax; taxS = halfTax;
-        clawbackP = oasClawback(half, pOas); clawbackS = oasClawback(half, sOas);
-      } else if(married){
-        taxP = combinedTax(pTaxable, province); taxS = combinedTax(sTaxable, province);
-        clawbackP = oasClawback(pTaxable, pOas); clawbackS = oasClawback(sTaxable, sOas);
-      } else {
-        taxP = combinedTax(pTaxable, province); taxS = 0;
-        clawbackP = oasClawback(pTaxable, pOas); clawbackS = 0;
-      }
 
-      var grossP = pAuto + addP + cashSplit.fromP + stockSplit.fromP + tfsaSplit.fromP;
-      var grossS = sAuto + addS + cashSplit.fromS + stockSplit.fromS + tfsaSplit.fromS;
-      var taxAndClawbackP = taxP + clawbackP, taxAndClawbackS = taxS + clawbackS;
+      /* Real tax bill (includes the SERP lump sum) vs. a hypothetical bill as if
+         the lump sum hadn't arrived — the gap is the lump sum's own incremental
+         tax. The lump sum itself, and its share of tax, are kept out of Gross/
+         Tax/After-tax below (those represent ongoing spending income only, since
+         the lump sum's after-tax proceeds are saved to cash, not spent) — see the
+         totalTax/totalGrossAll lines further down for where the real, full tax
+         bill still gets counted. */
+      var totalTC = taxClawbackFor(pTaxable, sTaxable, pOas, sOas);
+      var spendableTC = taxClawbackFor(pAutoBase+addP, sAutoBase+addS, pOas, sOas);
+      var pLumpTax = Math.max(0, totalTC.p - spendableTC.p);
+      var sLumpTax = Math.max(0, totalTC.s - spendableTC.s);
+      var pLumpAfterTax = Math.max(0, pLumpThisYear - pLumpTax);
+      var sLumpAfterTax = Math.max(0, sLumpThisYear - sLumpTax);
+
+      var grossP = pAutoBase + addP + cashSplit.fromP + stockSplit.fromP + tfsaSplit.fromP;
+      var grossS = sAutoBase + addS + cashSplit.fromS + stockSplit.fromS + tfsaSplit.fromS;
+      var taxAndClawbackP = spendableTC.p, taxAndClawbackS = spendableTC.s;
       var grossIncome = grossP + grossS;
       var taxAndClawback = taxAndClawbackP + taxAndClawbackS;
-      totalTax += taxAndClawback;
-      totalGrossAll += grossIncome;
+      totalTax += totalTC.p + totalTC.s;
+      totalGrossAll += grossIncome + pLumpThisYear + sLumpThisYear;
 
       /* With income splitting, tax is allocated 50/50 for filing purposes, but the
          cash withdrawn isn't split — one spouse's real gross can be much smaller
@@ -1720,19 +1726,22 @@
 
       rows.push({
         age: age, phase: age<71 ? 'Pre-71' : '71+',
-        automatic: householdAuto, additionalRegistered: addP+addS,
+        automatic: householdAutoBase, additionalRegistered: addP+addS,
         cashW: cashW, stockW: stockW, tfsaW: tfsaW,
         grossIncome: grossIncome, tax: taxAndClawback, afterTax: afterTaxTotal,
         shortfall: remainingNeed,
+        lumpSumAfterTax: pLumpAfterTax + sLumpAfterTax,
         primary: {
-          automatic: pAuto, additionalRegistered: addP,
+          automatic: pAutoBase, additionalRegistered: addP,
           cashW: cashSplit.fromP, stockW: stockSplit.fromP, tfsaW: tfsaSplit.fromP,
-          gross: grossP, tax: taxAndClawbackP, afterTax: afterTaxP
+          gross: grossP, tax: taxAndClawbackP, afterTax: afterTaxP,
+          lumpSumGross: pLumpThisYear, lumpSumAfterTax: pLumpAfterTax
         },
         spouse: married ? {
-          automatic: sAuto, additionalRegistered: addS,
+          automatic: sAutoBase, additionalRegistered: addS,
           cashW: cashSplit.fromS, stockW: stockSplit.fromS, tfsaW: tfsaSplit.fromS,
-          gross: grossS, tax: taxAndClawbackS, afterTax: afterTaxS
+          gross: grossS, tax: taxAndClawbackS, afterTax: afterTaxS,
+          lumpSumGross: sLumpThisYear, lumpSumAfterTax: sLumpAfterTax
         } : null
       });
 
@@ -2096,19 +2105,26 @@
         + '<tbody>'+body+'</tbody>';
     }
 
+    var firstRow = plan.rows[0];
+    function lumpNote(lumpGross, lumpAfterTax){
+      return lumpGross > 0.5
+        ? 'In year one, a '+fmtMoney0.format(Math.round(lumpGross))+' one-time SERP payout is also received and taxed — '+fmtMoney0.format(Math.round(lumpAfterTax))+' after tax goes straight to cash (not counted below, since it’s saved rather than spent). '
+        : '';
+    }
+
     personTable('taxTable1', plan.rows, 'primary');
-    $('taxTable1Hint').textContent = m.married
+    $('taxTable1Hint').textContent = (firstRow ? lumpNote(firstRow.primary.lumpSumGross, firstRow.primary.lumpSumAfterTax) : '') + (m.married
       ? (m.incomeSplit
           ? 'Tax is calculated on your half of the combined household income (income splitting is on) — since the cash withdrawn isn’t split the same way, after-tax here is your share of the household’s real spending power, not simply this row’s gross minus tax.'
           : 'Tax is calculated on your own income only (income splitting is off).')
-      : '';
+      : '');
 
     if(m.married){
       $('taxTable2Card').style.display = '';
       personTable('taxTable2', plan.rows, 'spouse');
-      $('taxTable2Hint').textContent = m.incomeSplit
+      $('taxTable2Hint').textContent = (firstRow ? lumpNote(firstRow.spouse.lumpSumGross, firstRow.spouse.lumpSumAfterTax) : '') + (m.incomeSplit
         ? 'Tax is calculated on your spouse’s half of the combined household income (income splitting is on) — since the cash withdrawn isn’t split the same way, after-tax here is their share of the household’s real spending power, not simply this row’s gross minus tax.'
-        : 'Tax is calculated on your spouse’s own income only (income splitting is off).';
+        : 'Tax is calculated on your spouse’s own income only (income splitting is off).');
     } else {
       $('taxTable2Card').style.display = 'none';
     }
