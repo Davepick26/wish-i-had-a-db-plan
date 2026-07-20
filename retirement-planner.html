@@ -889,10 +889,10 @@
   <div class="card chart-card" style="margin-bottom:16px;">
     <div class="chart-head">
       <div>
-        <h2 style="border:0;padding:0;margin:0 0 4px;">Gross vs. after-tax income, by age</h2>
+        <h2 style="border:0;padding:0;margin:0 0 4px;" id="chartTaxTitle">Gross vs. after-tax income, by age</h2>
         <div class="legend">
-          <span class="legend-item"><span class="sw" style="background:var(--db)"></span>Gross income</span>
-          <span class="legend-item"><span class="sw" style="background:var(--dc)"></span>After-tax income</span>
+          <span class="legend-item"><span class="sw" style="background:var(--db)"></span><span id="chartTaxLegend1">Gross income</span></span>
+          <span class="legend-item"><span class="sw" style="background:var(--dc)"></span><span id="chartTaxLegend2">After-tax income</span></span>
         </div>
       </div>
     </div>
@@ -1650,21 +1650,37 @@
       totalTax += taxAndClawback;
       totalGrossAll += grossIncome;
 
+      /* With income splitting, tax is allocated 50/50 for filing purposes, but the
+         cash withdrawn isn't split — one spouse's real gross can be much smaller
+         than their half of the pooled tax basis (e.g. a small RRIF minimum next to
+         a much larger one from 71 on), which would show as a negative after-tax
+         figure if subtracted directly. Attribute the household's real after-tax
+         total proportionally by each spouse's actual gross withdrawal instead. */
+      var afterTaxTotal = grossIncome - taxAndClawback;
+      var afterTaxP, afterTaxS;
+      if(married && split && grossIncome > 0){
+        afterTaxP = afterTaxTotal * (grossP/grossIncome);
+        afterTaxS = afterTaxTotal - afterTaxP;
+      } else {
+        afterTaxP = grossP - taxAndClawbackP;
+        afterTaxS = grossS - taxAndClawbackS;
+      }
+
       rows.push({
         age: age, phase: age<71 ? 'Pre-71' : '71+',
         automatic: householdAuto, additionalRegistered: addP+addS,
         cashW: cashW, stockW: stockW, tfsaW: tfsaW,
-        grossIncome: grossIncome, tax: taxAndClawback, afterTax: grossIncome-taxAndClawback,
+        grossIncome: grossIncome, tax: taxAndClawback, afterTax: afterTaxTotal,
         shortfall: remainingNeed,
         primary: {
           automatic: pAuto, additionalRegistered: addP,
           cashW: cashSplit.fromP, stockW: stockSplit.fromP, tfsaW: tfsaSplit.fromP,
-          gross: grossP, tax: taxAndClawbackP, afterTax: grossP - taxAndClawbackP
+          gross: grossP, tax: taxAndClawbackP, afterTax: afterTaxP
         },
         spouse: married ? {
           automatic: sAuto, additionalRegistered: addS,
           cashW: cashSplit.fromS, stockW: stockSplit.fromS, tfsaW: tfsaSplit.fromS,
-          gross: grossS, tax: taxAndClawbackS, afterTax: grossS - taxAndClawbackS
+          gross: grossS, tax: taxAndClawbackS, afterTax: afterTaxS
         } : null
       });
 
@@ -1968,20 +1984,37 @@
     var svg = $('chartTax');
     svg.innerHTML = '';
     svg.setAttribute('viewBox','0 0 '+CW+' '+CH);
-    var data = plan.rows;
-    if(data.length){
-      var scales = buildScales(data, 'age', ['grossIncome','afterTax']);
+
+    var key1, key2, label1, label2, chartData;
+    if(m.married){
+      $('chartTaxTitle').textContent = 'After-tax income by person, by age';
+      label1 = 'Your after-tax income'; label2 = 'Spouse’s after-tax income';
+      key1 = 'primaryAfterTax'; key2 = 'spouseAfterTax';
+      chartData = plan.rows.map(function(r){
+        return { age: r.age, primaryAfterTax: r.primary.afterTax, spouseAfterTax: r.spouse ? r.spouse.afterTax : 0 };
+      });
+    } else {
+      $('chartTaxTitle').textContent = 'Gross vs. after-tax income, by age';
+      label1 = 'Gross income'; label2 = 'After-tax income';
+      key1 = 'grossIncome'; key2 = 'afterTax';
+      chartData = plan.rows;
+    }
+    $('chartTaxLegend1').textContent = label1;
+    $('chartTaxLegend2').textContent = label2;
+
+    if(chartData.length){
+      var scales = buildScales(chartData, 'age', [key1, key2]);
       drawAxes(svg, scales);
-      svg.appendChild(svgEl('path', { d: pathFor(data,'age','grossIncome',scales), class:'series-line', style:'stroke:var(--db)' }));
-      svg.appendChild(svgEl('path', { d: pathFor(data,'age','afterTax',scales), class:'series-line', style:'stroke:var(--dc)' }));
-      var last = data[data.length-1];
-      [['db','grossIncome'],['dc','afterTax']].forEach(function(pair){
+      svg.appendChild(svgEl('path', { d: pathFor(chartData,'age',key1,scales), class:'series-line', style:'stroke:var(--db)' }));
+      svg.appendChild(svgEl('path', { d: pathFor(chartData,'age',key2,scales), class:'series-line', style:'stroke:var(--dc)' }));
+      var last = chartData[chartData.length-1];
+      [['db',key1],['dc',key2]].forEach(function(pair){
         var color = 'var(--'+pair[0]+')';
         svg.appendChild(svgEl('circle', { cx:scales.x(last.age), cy:scales.y(last[pair[1]]), r:4, fill:color, class:'end-dot' }));
       });
-      attachHover(svg, $('tooltipTax'), data, scales, [
-        {key:'grossIncome', color:'var(--db)', label:'Gross income'},
-        {key:'afterTax', color:'var(--dc)', label:'After-tax income'}
+      attachHover(svg, $('tooltipTax'), chartData, scales, [
+        {key:key1, color:'var(--db)', label:label1},
+        {key:key2, color:'var(--dc)', label:label2}
       ]);
     }
 
