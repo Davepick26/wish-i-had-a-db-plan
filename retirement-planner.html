@@ -674,7 +674,7 @@
             </tbody>
           </table>
         </div>
-        <div class="hint" style="margin-top:8px;">Balances and returns in dollars and %/yr; annual add grows with salary growth, same as your DC contributions. RRSP shares the drawdown method below with your DC balance; TFSA, stocks and cash always draw down at the withdrawal rate below. Non-registered growth ignores capital-gains tax. SERP is an employer-provided supplemental retirement plan on top of registered limits — treated like RRSP for tax purposes on the tax-optimized withdrawal page, but with no CRA-mandated minimum withdrawal.</div>
+        <div class="hint" style="margin-top:8px;">Balances and returns in dollars and %/yr; annual add grows with salary growth, same as your DC contributions. RRSP shares the drawdown method below with your DC balance; TFSA, stocks and cash always draw down at the withdrawal rate below. Non-registered growth ignores capital-gains tax. SERP is an employer-provided supplemental retirement plan on top of registered limits — modeled here as growing until retirement, then on the tax-optimized withdrawal page it pays out as a single taxable lump sum in your first year of retirement, with the after-tax proceeds added to cash.</div>
       </div>
 
       <div class="card panel-card">
@@ -866,9 +866,9 @@
     capital-gains treatment on non-registered stock, RRSP/TFSA contribution-room limits, and early-retirement reductions.
     DC and RRSP balances (and a spouse's, if married) are combined into one registered pool for retirement drawdown, using
     a blended return — TFSA, stocks, cash and SERP form a second pool that always draws down at the chosen withdrawal
-    rate here (SERP is taxable and gets treated separately from TFSA/stocks/cash on the tax-optimized withdrawal page,
-    since this page doesn't model tax at all), since CRA does not mandate minimum withdrawals on any of them. CPP and
-    OAS are estimated from the amounts you enter (not
+    rate here, since this page doesn't model tax at all (on the tax-optimized withdrawal page, SERP instead pays out as
+    a taxable lump sum in your first retirement year, with after-tax proceeds added to cash — this page approximates
+    that by having SERP earn cash's return from retirement on). CPP and OAS are estimated from the amounts you enter (not
     calculated from a contribution history), actuarially adjusted for your chosen start age, and added equally to both the
     savings and theoretical-DB income lines since you'd receive them regardless of pension type — OAS clawback is not
     applied here. If married, retirement age and income horizon are assumed shared between spouses, and the theoretical DB
@@ -951,11 +951,11 @@
   <footer class="disclosure">
     <strong>This withdrawal order is a simplified rule of thumb, not a tax optimization or professional advice.</strong>
     Your goal (set on the planner page) is treated as an <strong>after-tax</strong> target, funded from your real
-    accounts and benefits — the theoretical DB pension is a hypothetical comparison and isn't included here. Each year
-    draws mandatory income first (CPP, OAS, and RRIF minimums from age 71), then tops up any after-tax shortfall from
-    RRSP/RRIF and SERP together (RRSP first, since it's otherwise headed for mandatory RRIF withdrawals — SERP carries
-    no CRA-mandated minimum of its own) — grossed up by the marginal rate at each step so the after-tax result lands
-    on target, while staying within the
+    accounts and benefits — the theoretical DB pension is a hypothetical comparison and isn't included here. SERP pays
+    out as a single taxable lump sum in your first year of retirement (not drawn down gradually), taxed alongside that
+    year's other income; the after-tax proceeds are added to cash from then on. Each year otherwise draws mandatory
+    income first (CPP, OAS, and RRIF minimums from age 71), then tops up any after-tax shortfall from RRSP/RRIF —
+    grossed up by the marginal rate at each step so the after-tax result lands on target, while staying within the
     current combined federal+provincial bracket — then cash, then non-registered stock, then TFSA last (both tax-free
     here, so no grossing needed). The grossing-up math is exact within one bracket step and approximate if a single
     year's shortfall spans more than two brackets, and it does not account for OAS clawback when sizing withdrawals
@@ -1404,9 +1404,12 @@
       : dcNetReturn;
     var otherBalance = tfsaAtRetirement + stockAtRetirement + cashAtRetirement + serpAtRetirement
       + spouseTfsaAtRetirement + spouseStockAtRetirement + spouseCashAtRetirement + spouseSerpAtRetirement;
+    /* SERP pays out as a taxable lump sum at retirement and is held as cash from then on
+       (see the tax-optimized withdrawal page), so it earns cash's return during retirement,
+       not its own — even though it still grows at its own rate up to retirement above. */
     var otherReturn = otherBalance > 0
-      ? (tfsaAtRetirement*tfsaReturn + stockAtRetirement*stockReturn + cashAtRetirement*cashReturn + serpAtRetirement*serpReturn
-         + spouseTfsaAtRetirement*spouseTfsaReturn + spouseStockAtRetirement*spouseStockReturn + spouseCashAtRetirement*spouseCashReturn + spouseSerpAtRetirement*spouseSerpReturn) / otherBalance
+      ? (tfsaAtRetirement*tfsaReturn + stockAtRetirement*stockReturn + cashAtRetirement*cashReturn + serpAtRetirement*cashReturn
+         + spouseTfsaAtRetirement*spouseTfsaReturn + spouseStockAtRetirement*spouseStockReturn + spouseCashAtRetirement*spouseCashReturn + spouseSerpAtRetirement*spouseCashReturn) / otherBalance
       : 0;
 
     var registeredYear1 = decumMethod==='rrif' ? registeredBalance*rrifFactor(retireAge) : registeredBalance*withdrawalRate;
@@ -1520,26 +1523,29 @@
   }
 
   /* ---------------- tax-optimized withdrawal simulation ----------------
-     Heuristic (not a full optimizer): each year, mandatory income (CPP, OAS, DB,
-     and RRIF minimums from 71 on) is drawn first. Any shortfall against the goal
-     is topped up from RRSP/RRIF and SERP while it stays within the current tax bracket,
-     then cash, then non-registered stock, then TFSA (kept for last, tax-free
-     growth). If income splitting is on, the household's combined taxable
-     retirement income is pooled and divided evenly for tax purposes. */
+     Heuristic (not a full optimizer): SERP pays out as a single taxable lump
+     sum in year one of retirement (not drawn down over multiple years); its
+     after-tax proceeds land in cash. Otherwise, each year, mandatory income
+     (CPP, OAS, and RRIF minimums from 71 on) is drawn first. Any shortfall
+     against the goal is topped up from RRSP/RRIF while it stays within the
+     current tax bracket, then cash, then non-registered stock, then TFSA
+     (kept for last, tax-free growth). If income splitting is on, the
+     household's combined taxable retirement income is pooled and divided
+     evenly for tax purposes. */
   function computeTaxPlan(m, province, goalAnnual){
     var retireAge = m.retireAge, planToAge = m.planToAge, inflation = m.inflation;
     var married = m.married, split = m.incomeSplit;
 
     var pReg = m.primary.registeredAtRetirement, pRegRet = m.primary.registeredReturn;
-    var pSerp = m.primary.serpAtRetirement, pSerpRet = m.primary.serpReturn;
+    var pSerp = m.primary.serpAtRetirement;
     var pCash = m.primary.cashAtRetirement, pCashRet = m.primary.cashReturn;
     var pStock = m.primary.stockAtRetirement, pStockRet = m.primary.stockReturn;
     var pTfsa = m.primary.tfsaAtRetirement, pTfsaRet = m.primary.tfsaReturn;
 
-    var sReg=0,sRegRet=0,sSerp=0,sSerpRet=0,sCash=0,sCashRet=0,sStock=0,sStockRet=0,sTfsa=0,sTfsaRet=0;
+    var sReg=0,sRegRet=0,sSerp=0,sCash=0,sCashRet=0,sStock=0,sStockRet=0,sTfsa=0,sTfsaRet=0;
     if(married){
       sReg = m.spouse.registeredAtRetirement; sRegRet = m.spouse.registeredReturn;
-      sSerp = m.spouse.serpAtRetirement; sSerpRet = m.spouse.serpReturn;
+      sSerp = m.spouse.serpAtRetirement;
       sCash = m.spouse.cashAtRetirement; sCashRet = m.spouse.cashReturn;
       sStock = m.spouse.stockAtRetirement; sStockRet = m.spouse.stockReturn;
       sTfsa = m.spouse.tfsaAtRetirement; sTfsaRet = m.spouse.tfsaReturn;
@@ -1549,6 +1555,21 @@
       var fromP = Math.min(w, pAmt);
       return { fromP: fromP, fromS: w - fromP };
     }
+    function taxForIncome(pInc, sInc){
+      if(married && split){
+        var t = combinedTax((pInc+sInc)/2, province);
+        return { p: t, s: t };
+      } else if(married){
+        return { p: combinedTax(pInc, province), s: combinedTax(sInc, province) };
+      }
+      return { p: combinedTax(pInc, province), s: 0 };
+    }
+
+    /* SERP is paid out as a single taxable lump sum in the first year of
+       retirement, not drawn down over multiple years like RRSP/RRIF — so it's
+       pulled out of the ongoing account balances up front. */
+    var pSerpLump = pSerp, sSerpLump = married ? sSerp : 0;
+    pSerp = 0; sSerp = 0;
 
     var rows = [], totalTax = 0, totalGrossAll = 0;
 
@@ -1560,32 +1581,45 @@
       var pCpp = age>=m.primary.cppStartAge ? m.primary.cppAtStart*Math.pow(1+inflation, age-m.primary.cppStartAge) : 0;
       var pOas = age>=m.primary.oasStartAge ? m.primary.oasAtStart*Math.pow(1+inflation, age-m.primary.oasStartAge) : 0;
       var pRrifMin = age>=71 ? pReg*rrifFactor(age) : 0;
-      var pAuto = pCpp + pOas + pRrifMin;
+      var pLumpThisYear = j===0 ? pSerpLump : 0;
+      var pAutoBase = pCpp + pOas + pRrifMin;
+      var pAuto = pAutoBase + pLumpThisYear;
 
-      var sCpp=0, sOas=0, sRrifMin=0, sAuto=0;
+      var sCpp=0, sOas=0, sRrifMin=0, sAutoBase=0, sAuto=0, sLumpThisYear=0;
       if(married){
         sCpp = age>=m.spouse.cppStartAge ? m.spouse.cppAtStart*Math.pow(1+inflation, age-m.spouse.cppStartAge) : 0;
         sOas = age>=m.spouse.oasStartAge ? m.spouse.oasAtStart*Math.pow(1+inflation, age-m.spouse.oasStartAge) : 0;
         sRrifMin = age>=71 ? sReg*rrifFactor(age) : 0;
-        sAuto = sCpp+sOas+sRrifMin;
+        sLumpThisYear = j===0 ? sSerpLump : 0;
+        sAutoBase = sCpp+sOas+sRrifMin;
+        sAuto = sAutoBase + sLumpThisYear;
+      }
+
+      /* After-tax value of this year's SERP lump sum(s), by the incremental tax
+         they cause on top of that year's other automatic income — credited to
+         cash at year-end (not immediately, so it can't also be double-counted
+         as a same-year withdrawal from the pool it just funded). */
+      var pLumpAfterTax = 0, sLumpAfterTax = 0;
+      if(pLumpThisYear > 0 || sLumpThisYear > 0){
+        var taxWith = taxForIncome(pAutoBase+pLumpThisYear, sAutoBase+sLumpThisYear);
+        var taxWithout = taxForIncome(pAutoBase, sAutoBase);
+        pLumpAfterTax = Math.max(0, pLumpThisYear - (taxWith.p - taxWithout.p));
+        sLumpAfterTax = Math.max(0, sLumpThisYear - (taxWith.s - taxWithout.s));
       }
 
       var householdAuto = pAuto + sAuto;
-      /* RRSP/RRIF and SERP are both fully taxable discretionary sources with no
-         tax-free benefit, so they're bracket-filled together as one "taxable" pool —
-         SERP carries no CRA-mandated minimum of its own, unlike RRSP/RRIF from 71. */
-      var pRegRoom = Math.max(0, pReg - pRrifMin), pSerpRoom = pSerp, pRegAvail = pRegRoom + pSerpRoom;
-      var sRegRoom = married ? Math.max(0, sReg - sRrifMin) : 0, sSerpRoom = married ? sSerp : 0;
-      var sRegAvail = sRegRoom + sSerpRoom;
+      var pRegAvail = Math.max(0, pReg - pRrifMin);
+      var sRegAvail = married ? Math.max(0, sReg - sRrifMin) : 0;
       var addP = 0, addS = 0;
 
       /* targetThisYear and remainingNeed are AFTER-TAX amounts (the goal is after-tax).
          Registered withdrawals are grossed up by the marginal rate they'd face so the
          after-tax result lands on target; cash/stock/TFSA need no grossing (tax-free here).
-         Order: RRSP/SERP only up to the CURRENT bracket ceiling first, then cash, then
+         Order: RRSP/RRIF only up to the CURRENT bracket ceiling first, then cash, then
          stock, then TFSA (all tax-free, so no reason to cross a bracket for them) — only
-         reaching further into RRSP/SERP beyond the ceiling as a last resort once every
-         tax-free source is exhausted and there's still a shortfall. */
+         reaching further into RRSP/RRIF beyond the ceiling as a last resort once every
+         tax-free source is exhausted and there's still a shortfall. SERP isn't part of
+         this ongoing pool — see the lump-sum handling above the year loop. */
       var ceiling, order, autos, avail, added;
       if(married && split){
         var autoAfterTax = householdAuto - 2*combinedTax(householdAuto/2, province);
@@ -1625,7 +1659,7 @@
       var tfsaSplit = splitDraw(pTfsa, sTfsa, tfsaW);
 
       /* Last resort: every tax-free source is exhausted but the after-tax goal still
-         isn't met — reach further into RRSP/RRIF and SERP, now crossing into a higher bracket. */
+         isn't met — reach further into RRSP/RRIF, now crossing into a higher bracket. */
       if(remainingNeed > 0){
         if(married && split){
           var pRoom2 = pRegAvail-addP, sRoom2 = sRegAvail-addS, moreAvail = pRoom2+sRoom2;
@@ -1645,11 +1679,6 @@
           addP = added.p; addS = married ? added.s : 0;
         }
       }
-
-      /* Split each person's combined RRSP+SERP draw back into its two sources,
-         RRSP first (its balance is otherwise headed for mandatory RRIF withdrawals). */
-      var pFromReg = Math.min(addP, pRegRoom), pFromSerp = addP - pFromReg;
-      var sFromReg = Math.min(addS, sRegRoom), sFromSerp = addS - sFromReg;
 
       var pTaxable = pAuto+addP, sTaxable = married ? (sAuto+addS) : 0;
       var taxP, taxS, clawbackP, clawbackS;
@@ -1707,13 +1736,10 @@
         } : null
       });
 
-      pReg = Math.max(pReg-pRrifMin-pFromReg, 0) * (1+pRegRet);
-      pSerp = Math.max(pSerp-pFromSerp, 0) * (1+pSerpRet);
-      if(married){
-        sReg = Math.max(sReg-sRrifMin-sFromReg, 0) * (1+sRegRet);
-        sSerp = Math.max(sSerp-sFromSerp, 0) * (1+sSerpRet);
-      }
-      pCash = Math.max(pCash-cashSplit.fromP, 0)*(1+pCashRet); sCash = Math.max(sCash-cashSplit.fromS, 0)*(1+sCashRet);
+      pReg = Math.max(pReg-pRrifMin-addP, 0) * (1+pRegRet);
+      if(married) sReg = Math.max(sReg-sRrifMin-addS, 0) * (1+sRegRet);
+      pCash = (Math.max(pCash-cashSplit.fromP, 0) + pLumpAfterTax)*(1+pCashRet);
+      sCash = (Math.max(sCash-cashSplit.fromS, 0) + sLumpAfterTax)*(1+sCashRet);
       pStock = Math.max(pStock-stockSplit.fromP, 0)*(1+pStockRet); sStock = Math.max(sStock-stockSplit.fromS, 0)*(1+sStockRet);
       pTfsa = Math.max(pTfsa-tfsaSplit.fromP, 0)*(1+pTfsaRet); sTfsa = Math.max(sTfsa-tfsaSplit.fromS, 0)*(1+sTfsaRet);
     }
@@ -2066,7 +2092,7 @@
           + '<td>'+fmtMoney0.format(Math.round(p.afterTax))+'</td></tr>';
       }).join('');
       $(tableId).innerHTML = '<thead><tr><th>Age</th><th style="text-align:left;">Phase</th><th>CPP/OAS/RRIF-min</th>'
-        + '<th>+RRSP/SERP</th><th>+Cash/stock</th><th>+TFSA</th><th>Gross</th><th>Tax</th><th>After-tax</th></tr></thead>'
+        + '<th>+RRSP/RRIF</th><th>+Cash/stock</th><th>+TFSA</th><th>Gross</th><th>Tax</th><th>After-tax</th></tr></thead>'
         + '<tbody>'+body+'</tbody>';
     }
 
