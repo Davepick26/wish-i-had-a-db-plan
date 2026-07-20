@@ -27,6 +27,19 @@ Requires [Node.js](https://nodejs.org).
 
 ```
 npm install       # first time only
-npm start         # run the app
-npm run dist      # build a Windows installer into dist/
+npm start         # run the app in a window
+npm run pack      # build a standalone app folder into dist/ (recommended)
+npm run dist      # build an NSIS installer instead — needs Windows Developer
+                   # Mode or an elevated shell (see note below)
 ```
+
+`npm run pack` produces `dist/Wish I Had a DB Plan-win32-x64/Wish I Had a DB Plan.exe`
+— copy that whole folder anywhere and run the .exe directly, no installer needed.
+
+`npm run dist` builds a proper NSIS installer via electron-builder, but it downloads a
+macOS code-signing helper bundle that fails to extract on Windows unless
+[Developer Mode is enabled](ms-settings:developers) (Settings → Privacy & security →
+For developers) or the shell is running as Administrator — both grant the
+`SeCreateSymbolicLinkPrivilege` needed to extract it. This project doesn't do any
+actual code signing, so the app will be unsigned either way (expect a Windows
+SmartScreen prompt on first run of the installer).

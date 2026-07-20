@@ -8,11 +8,13 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "pack": "electron-packager . \"Wish I Had a DB Plan\" --platform=win32 --arch=x64 --icon=icon.ico --out=dist --overwrite --prune"
   },
   "devDependencies": {
     "electron": "^32.3.3",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^25.1.8",
+    "electron-packager": "^17.1.2"
   },
   "build": {
     "appId": "com.davepick26.wishihadadbplan",
