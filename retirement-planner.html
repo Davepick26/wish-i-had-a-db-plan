@@ -707,6 +707,22 @@
       </div>
 
       <div class="card panel-card">
+        <h2>Long-term incentive plan (LTIP)<small>A fixed-term, already after-tax payout continuing into retirement</small></h2>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="ltipAfterTax">After-tax amount</label>
+            <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="ltipAfterTax" type="number" value="0" min="0" step="1000"><span class="unit">/yr</span></div>
+          </div>
+          <div class="field">
+            <label for="ltipYears">Number of years</label>
+            <div class="input-unit"><input id="ltipYears" type="number" value="3" min="0" max="20" step="1"><span class="unit">yrs from retirement</span></div>
+          </div>
+        </div>
+        <div class="hint">Starts the year you retire and runs for this many years. Since you're giving this as an after-tax amount, it's added directly to your after-tax spending power on the tax-optimized withdrawal page — reducing how much you need to withdraw from RRSP/RRIF, cash, stock and TFSA in those years — without needing any further tax calculated on it. It's kept out of the pre-tax "your savings vs. theoretical DB" comparison above, since that comparison is pre-tax throughout and mixing in an after-tax figure there would overstate it. Simplification: because only the after-tax amount is known, its real pre-tax value can't be reflected in your tax bracket or OAS clawback for those years.</div>
+      </div>
+
+      <div class="card panel-card">
         <h2>Retirement drawdown<small>How your DC, RRSP, TFSA, stocks &amp; cash convert to income</small></h2>
 
         <div class="field">
@@ -1074,6 +1090,7 @@
     "tfsaBalance","tfsaContrib","tfsaReturn","rrspBalance","rrspContrib","rrspReturn",
     "stockBalance","stockContrib","stockReturn","cashBalance","cashContrib","cashReturn",
     "serpBalance","serpContrib","serpReturn",
+    "ltipAfterTax","ltipYears",
     "serviceToDate","accrualRate","avgYears","bridgeAmount",
     "cppAmount","cppStart","oasAmount","oasStart",
     "spouseCurrentAge","spouseSalary","spouseDcBalance","spouseEeContrib","spouseErContrib","spouseDcReturn","spouseDcFee",
@@ -1307,6 +1324,8 @@
     var dbIndexed = $('dbIndexed').checked;
     var cppBridge = $('cppBridge').checked;
     var bridgeAmount = cppBridge ? Math.max(num('bridgeAmount'), 0) : 0;
+    var ltipAfterTax = Math.max(num('ltipAfterTax'), 0);
+    var ltipYears = Math.max(Math.round(num('ltipYears')), 0);
 
     var married = $('married').checked;
     var incomeSplit = married && $('incomeSplit').checked;
@@ -1508,7 +1527,8 @@
         tfsaAtRetirement: tfsaAtRetirement, stockAtRetirement: stockAtRetirement, cashAtRetirement: cashAtRetirement,
         serpAtRetirement: serpAtRetirement, serpReturn: serpReturn,
         tfsaReturn: tfsaReturn, stockReturn: stockReturn, cashReturn: cashReturn,
-        cppAtStart: cppAtStart, oasAtStart: oasAtStart, cppStartAge: cppStartAge, oasStartAge: oasStartAge
+        cppAtStart: cppAtStart, oasAtStart: oasAtStart, cppStartAge: cppStartAge, oasStartAge: oasStartAge,
+        ltipAfterTax: ltipAfterTax, ltipYears: ltipYears
       },
       spouse: married ? {
         registeredAtRetirement: spouseDcAtRetirement + spouseRrspAtRetirement,
@@ -1593,6 +1613,11 @@
       var pLumpThisYear = j===0 ? pSerpLump : 0;
       var pAutoBase = pCpp + pOas + pRrifMin;
       var pAuto = pAutoBase + pLumpThisYear;
+      /* LTIP is given as an already after-tax amount, so it needs no grossing up or
+         further tax — it's added straight to spendable after-tax income for its fixed
+         number of years from retirement, reducing what's needed from RRSP/RRIF, cash,
+         stock and TFSA. */
+      var pLtip = j < m.primary.ltipYears ? m.primary.ltipAfterTax : 0;
 
       var sCpp=0, sOas=0, sRrifMin=0, sAutoBase=0, sAuto=0, sLumpThisYear=0;
       if(married){
@@ -1626,7 +1651,7 @@
            positioning below still uses the true, lump-inclusive basis, since any
            extra RRSP/RRIF drawn this year really does stack on top of the lump
            for tax purposes. */
-        var autoAfterTax = householdAutoBase - 2*combinedTax(householdAutoBase/2, province);
+        var autoAfterTax = householdAutoBase - 2*combinedTax(householdAutoBase/2, province) + pLtip;
         var remainingNeed = Math.max(0, targetThisYear - autoAfterTax);
         var basis = householdAuto/2;
         ceiling = combinedBracketCeiling(basis, province);
@@ -1637,9 +1662,9 @@
         if(totalAvail>0){ addP = addTotal*(pRegAvail/totalAvail); addS = addTotal-addP; }
         remainingNeed -= addTotal*(1-rate1);
       } else {
-        var autoAfterTax = married
+        var autoAfterTax = (married
           ? (pAutoBase - combinedTax(pAutoBase, province)) + (sAutoBase - combinedTax(sAutoBase, province))
-          : (pAutoBase - combinedTax(pAutoBase, province));
+          : (pAutoBase - combinedTax(pAutoBase, province))) + pLtip;
         var remainingNeed = Math.max(0, targetThisYear - autoAfterTax);
         order = married ? (pAuto<=sAuto ? ['p','s'] : ['s','p']) : ['p'];
         autos = { p:pAuto, s:sAuto }; avail = { p:pRegAvail, s:sRegAvail }; added = { p:0, s:0 };
@@ -1701,7 +1726,7 @@
       var pLumpAfterTax = Math.max(0, pLumpThisYear - pLumpTax);
       var sLumpAfterTax = Math.max(0, sLumpThisYear - sLumpTax);
 
-      var grossP = pAutoBase + addP + cashSplit.fromP + stockSplit.fromP + tfsaSplit.fromP;
+      var grossP = pAutoBase + addP + cashSplit.fromP + stockSplit.fromP + tfsaSplit.fromP + pLtip;
       var grossS = sAutoBase + addS + cashSplit.fromS + stockSplit.fromS + tfsaSplit.fromS;
       var taxAndClawbackP = spendableTC.p, taxAndClawbackS = spendableTC.s;
       var grossIncome = grossP + grossS;
@@ -1745,7 +1770,7 @@
           automatic: pAutoBase, additionalRegistered: addP,
           cashW: cashSplit.fromP, stockW: stockSplit.fromP, tfsaW: tfsaSplit.fromP,
           gross: grossP, tax: taxAndClawbackP, afterTax: afterTaxP,
-          lumpSumGross: pLumpThisYear, lumpSumAfterTax: pLumpAfterTax
+          lumpSumGross: pLumpThisYear, lumpSumAfterTax: pLumpAfterTax, ltip: pLtip
         },
         spouse: married ? {
           automatic: sAutoBase, additionalRegistered: addS,
@@ -2037,6 +2062,9 @@
       detail.push(['Spouse’s TFSA+stocks+cash at retirement', fmtMoney0.format(Math.round(m.spouse.otherAtRetirement))]);
       detail.push(['Spouse’s CPP + OAS at start', fmtMoney0.format(Math.round(m.spouse.cppAtStart+m.spouse.oasAtStart))+'/yr']);
     }
+    if(m.primary.ltipAfterTax > 0 && m.primary.ltipYears > 0){
+      detail.push(['LTIP (after-tax, tax-optimized page only)', fmtMoney0.format(Math.round(m.primary.ltipAfterTax))+'/yr for '+m.primary.ltipYears+' yr'+(m.primary.ltipYears===1?'':'s')]);
+    }
     $('detailGrid').innerHTML = detail.map(function(d){
       return '<div class="detail-item"><div class="k">'+d[0]+'</div><div class="v">'+d[1]+'</div></div>';
     }).join('');
@@ -2118,6 +2146,7 @@
         var p = r[person];
         return '<tr><td>'+r.age+'</td><td style="text-align:left;">'+r.phase+'</td>'
           + '<td>'+fmtMoney0.format(Math.round(p.automatic))+'</td>'
+          + '<td>'+fmtMoney0.format(Math.round(p.ltip||0))+'</td>'
           + '<td>'+fmtMoney0.format(Math.round(p.additionalRegistered))+'</td>'
           + '<td>'+fmtMoney0.format(Math.round(p.cashW+p.stockW))+'</td>'
           + '<td>'+fmtMoney0.format(Math.round(p.tfsaW))+'</td>'
@@ -2126,7 +2155,7 @@
           + '<td>'+fmtMoney0.format(Math.round(p.afterTax))+'</td></tr>';
       }).join('');
       $(tableId).innerHTML = '<thead><tr><th>Age</th><th style="text-align:left;">Phase</th><th>CPP/OAS/RRIF-min</th>'
-        + '<th>+RRSP/RRIF</th><th>+Cash/stock</th><th>+TFSA</th><th>Gross</th><th>Tax</th><th>After-tax</th></tr></thead>'
+        + '<th>+LTIP</th><th>+RRSP/RRIF</th><th>+Cash/stock</th><th>+TFSA</th><th>Gross</th><th>Tax</th><th>After-tax</th></tr></thead>'
         + '<tbody>'+body+'</tbody>';
     }
 
