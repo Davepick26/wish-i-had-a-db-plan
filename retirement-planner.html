@@ -916,6 +916,8 @@
     </div>
   </div>
 
+  <div id="taxStatusChipWrap" style="margin-bottom:16px;"></div>
+
   <div class="card chart-card" style="margin-bottom:16px;">
     <div class="chart-head">
       <div>
@@ -1419,7 +1421,6 @@
     var decumYears = planToAge - retireAge;
     var decumulation = [];
     var runReg = registeredBalance, runOther = otherBalance;
-    var depletionAge = null;
 
     for(var j=0;j<=decumYears;j++){
       var age = retireAge + j;
@@ -1433,7 +1434,6 @@
       } else {
         var regTarget = registeredYear1 * Math.pow(1+inflation, j);
         regIncome = Math.min(regTarget, runReg);
-        if(regIncome < regTarget - 0.5 && depletionAge===null) depletionAge = age;
         runReg = Math.max(runReg - regIncome, 0) * (1+registeredReturn);
       }
 
@@ -1443,7 +1443,6 @@
       } else {
         var otherTarget = otherYear1 * Math.pow(1+inflation, j);
         otherIncome = Math.min(otherTarget, runOther);
-        if(otherIncome < otherTarget - 0.5 && depletionAge===null) depletionAge = age;
         runOther = Math.max(runOther - otherIncome, 0) * (1+otherReturn);
       }
 
@@ -1492,7 +1491,8 @@
       yearsOfService: yearsOfService,
       finalAvgEarnings: finalAvgEarnings, dbAnnualPension: dbAnnualPension,
       totalContrib: totalContrib,
-      depletionAge: depletionAge, cppBridge: cppBridge, bridgeAmount: bridgeAmount, dbIndexed: dbIndexed,
+      depletionAge: null /* set in render(), from the same tax-optimized withdrawal plan as the tax page */,
+      cppBridge: cppBridge, bridgeAmount: bridgeAmount, dbIndexed: dbIndexed,
       finalSalary: salaries.length ? salaries[salaries.length-1] : currentSalary,
       inflation: inflation, decumMethod: decumMethod, withdrawalRate: withdrawalRate,
       dcYear1Income: decumulation.length ? decumulation[0].dcIncomeNominal : 0,
@@ -1848,7 +1848,7 @@
       var rx = scales.x(model.depletionAge);
       svg.appendChild(svgEl('line', { x1:rx, x2:rx, y1:PAD.t, y2:CH-PAD.b, class:'ref-line' }));
       var rl = svgEl('text', { x:rx+5, y:PAD.t+11, class:'ref-label' });
-      rl.textContent = 'DC depleted, age '+model.depletionAge;
+      rl.textContent = 'Depleted, age '+model.depletionAge;
       svg.appendChild(rl);
     }
 
@@ -1978,6 +1978,14 @@
     var goalPreviewProvince = getSelectedProvince();
     var goalPreviewPlan = computeTaxPlan(m, goalPreviewProvince, goalMonthly*12);
     var actualMonthly = (goalPreviewPlan.rows.length ? goalPreviewPlan.rows[0].afterTax : 0) / 12;
+
+    /* "Depleted" now means the same thing here as on the tax-optimized page: the first
+       age at which every source (RRSP/RRIF, cash, stock, TFSA) has been drawn down and
+       the tax-optimized withdrawal order still can't fully cover the after-tax goal —
+       instead of the old, separate flat-withdrawal-rate estimate, which could (and did)
+       disagree with the tax page on when, or even whether, income falls short. */
+    var shortfallRow = goalPreviewPlan.rows.find(function(r){ return r.shortfall > 1; });
+    m.depletionAge = shortfallRow ? shortfallRow.age : null;
     $('goalCheckGoal').innerHTML = fmtMoney0.format(Math.round(goalMonthly))+'<span>/mo</span>';
     $('goalCheckActual').innerHTML = fmtMoney0.format(Math.round(actualMonthly))+'<span>/mo</span>';
     var ratio = goalMonthly > 0 ? actualMonthly/goalMonthly : 1;
@@ -2000,15 +2008,11 @@
     if(m.depletionAge !== null){
       var yearsShort = m.planToAge - m.depletionAge;
       chipWrap.innerHTML = '<div class="status-chip critical"><span class="dot"></span>'
-        + '<span>At these settings, your combined savings income is projected to fall short starting at age <strong>'+m.depletionAge+'</strong> — '
-        + yearsShort+' years before age '+m.planToAge+'. The theoretical DB pension keeps paying in full for life regardless.</span></div>';
-    } else if(m.decumMethod === 'rrif'){
-      chipWrap.innerHTML = '<div class="status-chip good"><span class="dot"></span>'
-        + '<span>Your DC &amp; RRSP balance is drawn down under CRA RRIF minimum withdrawals and mathematically never hits zero, though income moves '
-        + 'with the balance and schedule. TFSA, stocks and cash draw down at your chosen withdrawal rate. The theoretical DB pension pays a steady amount for life regardless.</span></div>';
+        + '<span>At these settings, your combined savings are projected to fall short of your after-tax goal starting at age <strong>'+m.depletionAge+'</strong> — '
+        + yearsShort+' years before age '+m.planToAge+'. The theoretical DB pension keeps paying in full for life regardless. Uses the same tax-optimized withdrawal order as the tax-optimized withdrawal page.</span></div>';
     } else {
       chipWrap.innerHTML = '<div class="status-chip good"><span class="dot"></span>'
-        + '<span>At this withdrawal rate, your combined savings are projected to last through age <strong>'+m.planToAge+'</strong> without running out.</span></div>';
+        + '<span>At these settings, your combined savings are projected to fully meet your after-tax goal through age <strong>'+m.planToAge+'</strong> without running out, using the same tax-optimized withdrawal order as the tax-optimized withdrawal page.</span></div>';
     }
 
     renderIncomeChart(m);
@@ -2050,6 +2054,17 @@
     $('taxTotalHero').textContent = fmtMoney0.format(Math.round(plan.totalTax));
     $('taxRateHero').textContent = fmtNum0.format(Math.round(plan.effectiveRate*100)) + '%';
     $('taxTotalSub').textContent = 'over '+plan.rows.length+' years, in '+TAX_DATA.provinces[province].name;
+
+    var taxShortfallRow = plan.rows.find(function(r){ return r.shortfall > 1; });
+    var taxChipWrap = $('taxStatusChipWrap');
+    if(taxShortfallRow){
+      var taxYearsShort = m.planToAge - taxShortfallRow.age;
+      taxChipWrap.innerHTML = '<div class="status-chip critical"><span class="dot"></span>'
+        + '<span>At these settings, even after fully drawing down RRSP/RRIF, cash, stock and TFSA, this withdrawal order can’t fully cover your after-tax goal starting at age <strong>'+taxShortfallRow.age+'</strong> — '
+        + taxYearsShort+' years before age '+m.planToAge+'.</span></div>';
+    } else {
+      taxChipWrap.innerHTML = '';
+    }
 
     var svg = $('chartTax');
     svg.innerHTML = '';
