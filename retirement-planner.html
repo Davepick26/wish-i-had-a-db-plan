@@ -1715,11 +1715,20 @@
          a much larger one from 71 on), which would show as a negative after-tax
          figure if subtracted directly. Attribute the household's real after-tax
          total proportionally by each spouse's actual gross withdrawal instead. */
+      /* Also re-attribute the TAX column itself the same way (rather than showing
+         each spouse's literal half of the pooled tax bill) so every row reads
+         consistently as gross minus tax equals after-tax, and a spouse whose own
+         withdrawal is small next to their partner's never shows more tax than
+         they withdrew — the real return still splits taxable income 50/50; this
+         is purely how the household's one shared bill is laid out across the
+         two tables. */
       var afterTaxTotal = grossIncome - taxAndClawback;
       var afterTaxP, afterTaxS;
       if(married && split && grossIncome > 0){
-        afterTaxP = afterTaxTotal * (grossP/grossIncome);
-        afterTaxS = afterTaxTotal - afterTaxP;
+        var taxShareP = taxAndClawback * (grossP/grossIncome);
+        taxAndClawbackP = taxShareP; taxAndClawbackS = taxAndClawback - taxShareP;
+        afterTaxP = grossP - taxAndClawbackP;
+        afterTaxS = grossS - taxAndClawbackS;
       } else {
         afterTaxP = grossP - taxAndClawbackP;
         afterTaxS = grossS - taxAndClawbackS;
@@ -2116,7 +2125,7 @@
     personTable('taxTable1', plan.rows, 'primary');
     $('taxTable1Hint').textContent = (firstRow ? lumpNote(firstRow.primary.lumpSumGross, firstRow.primary.lumpSumAfterTax) : '') + (m.married
       ? (m.incomeSplit
-          ? 'Tax is calculated on your half of the combined household income (income splitting is on) — since the cash withdrawn isn’t split the same way, after-tax here is your share of the household’s real spending power, not simply this row’s gross minus tax.'
+          ? 'Income splitting is on: your real tax return pools your combined taxable income and splits it 50/50. The household’s one shared tax bill is laid out across these two tables in proportion to what each of you actually withdrew, so after-tax here always equals this row’s gross minus tax.'
           : 'Tax is calculated on your own income only (income splitting is off).')
       : '');
 
@@ -2124,7 +2133,7 @@
       $('taxTable2Card').style.display = '';
       personTable('taxTable2', plan.rows, 'spouse');
       $('taxTable2Hint').textContent = (firstRow ? lumpNote(firstRow.spouse.lumpSumGross, firstRow.spouse.lumpSumAfterTax) : '') + (m.incomeSplit
-        ? 'Tax is calculated on your spouse’s half of the combined household income (income splitting is on) — since the cash withdrawn isn’t split the same way, after-tax here is their share of the household’s real spending power, not simply this row’s gross minus tax.'
+        ? 'Income splitting is on: your real tax return pools your combined taxable income and splits it 50/50. The household’s one shared tax bill is laid out across these two tables in proportion to what each of you actually withdrew, so after-tax here always equals this row’s gross minus tax.'
         : 'Tax is calculated on your spouse’s own income only (income splitting is off).');
     } else {
       $('taxTable2Card').style.display = 'none';
