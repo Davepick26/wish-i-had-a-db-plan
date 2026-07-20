@@ -242,6 +242,9 @@
   .legend-item{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-2); }
   .legend-item .sw{ width:14px; height:2px; border-radius:1px; }
   .legend-item.area .sw{ height:8px; }
+  .legend-item .sw.dashed{
+    background:none; height:0; border-top:2px dashed var(--ink-2); border-radius:0; margin-top:1px;
+  }
   .toggle-btn{
     font:11.5px var(--font-sans); color:var(--ink-muted); background:none; border:1px solid var(--line);
     border-radius:2px; padding:4px 8px; cursor:pointer; flex-shrink:0;
@@ -893,6 +896,7 @@
         <div class="legend">
           <span class="legend-item"><span class="sw" style="background:var(--db)"></span><span id="chartTaxLegend1">Gross income</span></span>
           <span class="legend-item"><span class="sw" style="background:var(--dc)"></span><span id="chartTaxLegend2">After-tax income</span></span>
+          <span class="legend-item" id="chartTaxLegend3Wrap" style="display:none;"><span class="sw dashed"></span>Total household after-tax</span>
         </div>
       </div>
     </div>
@@ -1985,13 +1989,13 @@
     svg.innerHTML = '';
     svg.setAttribute('viewBox','0 0 '+CW+' '+CH);
 
-    var key1, key2, label1, label2, chartData;
+    var key1, key2, label1, label2, chartData, showTotal = m.married;
     if(m.married){
       $('chartTaxTitle').textContent = 'After-tax income by person, by age';
       label1 = 'Your after-tax income'; label2 = 'Spouse’s after-tax income';
       key1 = 'primaryAfterTax'; key2 = 'spouseAfterTax';
       chartData = plan.rows.map(function(r){
-        return { age: r.age, primaryAfterTax: r.primary.afterTax, spouseAfterTax: r.spouse ? r.spouse.afterTax : 0 };
+        return { age: r.age, primaryAfterTax: r.primary.afterTax, spouseAfterTax: r.spouse ? r.spouse.afterTax : 0, totalAfterTax: r.afterTax };
       });
     } else {
       $('chartTaxTitle').textContent = 'Gross vs. after-tax income, by age';
@@ -2001,10 +2005,15 @@
     }
     $('chartTaxLegend1').textContent = label1;
     $('chartTaxLegend2').textContent = label2;
+    $('chartTaxLegend3Wrap').style.display = showTotal ? '' : 'none';
 
     if(chartData.length){
-      var scales = buildScales(chartData, 'age', [key1, key2]);
+      var yKeys = showTotal ? [key1, key2, 'totalAfterTax'] : [key1, key2];
+      var scales = buildScales(chartData, 'age', yKeys);
       drawAxes(svg, scales);
+      if(showTotal){
+        svg.appendChild(svgEl('path', { d: pathFor(chartData,'age','totalAfterTax',scales), class:'series-line', style:'stroke:var(--ink-2); stroke-dasharray:6,4;' }));
+      }
       svg.appendChild(svgEl('path', { d: pathFor(chartData,'age',key1,scales), class:'series-line', style:'stroke:var(--db)' }));
       svg.appendChild(svgEl('path', { d: pathFor(chartData,'age',key2,scales), class:'series-line', style:'stroke:var(--dc)' }));
       var last = chartData[chartData.length-1];
@@ -2012,10 +2021,15 @@
         var color = 'var(--'+pair[0]+')';
         svg.appendChild(svgEl('circle', { cx:scales.x(last.age), cy:scales.y(last[pair[1]]), r:4, fill:color, class:'end-dot' }));
       });
-      attachHover(svg, $('tooltipTax'), chartData, scales, [
+      if(showTotal){
+        svg.appendChild(svgEl('circle', { cx:scales.x(last.age), cy:scales.y(last.totalAfterTax), r:4, fill:'var(--ink-2)', class:'end-dot' }));
+      }
+      var hoverSeries = [
         {key:key1, color:'var(--db)', label:label1},
         {key:key2, color:'var(--dc)', label:label2}
-      ]);
+      ];
+      if(showTotal) hoverSeries.push({key:'totalAfterTax', color:'var(--ink-2)', label:'Total household after-tax'});
+      attachHover(svg, $('tooltipTax'), chartData, scales, hoverSeries);
     }
 
     function personTable(tableId, rows, person){
@@ -2037,14 +2051,16 @@
 
     personTable('taxTable1', plan.rows, 'primary');
     $('taxTable1Hint').textContent = m.married
-      ? (m.incomeSplit ? 'Tax is calculated on your half of the combined household income (income splitting is on).' : 'Tax is calculated on your own income only (income splitting is off).')
+      ? (m.incomeSplit
+          ? 'Tax is calculated on your half of the combined household income (income splitting is on) — since the cash withdrawn isn’t split the same way, after-tax here is your share of the household’s real spending power, not simply this row’s gross minus tax.'
+          : 'Tax is calculated on your own income only (income splitting is off).')
       : '';
 
     if(m.married){
       $('taxTable2Card').style.display = '';
       personTable('taxTable2', plan.rows, 'spouse');
       $('taxTable2Hint').textContent = m.incomeSplit
-        ? 'Tax is calculated on your spouse’s half of the combined household income (income splitting is on).'
+        ? 'Tax is calculated on your spouse’s half of the combined household income (income splitting is on) — since the cash withdrawn isn’t split the same way, after-tax here is their share of the household’s real spending power, not simply this row’s gross minus tax.'
         : 'Tax is calculated on your spouse’s own income only (income splitting is off).';
     } else {
       $('taxTable2Card').style.display = 'none';
