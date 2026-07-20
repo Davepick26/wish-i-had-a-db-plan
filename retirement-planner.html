@@ -889,9 +889,18 @@
   </div>
 
   <div class="card chart-card" style="margin-bottom:16px;">
-    <h2 style="border:0;padding:0;margin:0 0 10px;">Withdrawal order by year</h2>
+    <h2 style="border:0;padding:0;margin:0 0 4px;" id="taxTable1Title">Your withdrawal plan</h2>
+    <div class="hint" id="taxTable1Hint" style="margin-bottom:8px;"></div>
     <div class="table-scroll" style="max-height:460px;">
-      <table class="data-table" id="taxTable"></table>
+      <table class="data-table" id="taxTable1"></table>
+    </div>
+  </div>
+
+  <div class="card chart-card" id="taxTable2Card" style="margin-bottom:16px; display:none;">
+    <h2 style="border:0;padding:0;margin:0 0 4px;">Spouse's withdrawal plan</h2>
+    <div class="hint" id="taxTable2Hint" style="margin-bottom:8px;"></div>
+    <div class="table-scroll" style="max-height:460px;">
+      <table class="data-table" id="taxTable2"></table>
     </div>
   </div>
 
@@ -1486,9 +1495,9 @@
       sTfsa = m.spouse.tfsaAtRetirement; sTfsaRet = m.spouse.tfsaReturn;
     }
 
-    function drawPool(pAmt,pRet,sAmt,sRet,w){
-      var fromP = Math.min(w,pAmt), fromS = w-fromP;
-      return [ Math.max(pAmt-fromP,0)*(1+pRet), Math.max(sAmt-fromS,0)*(1+sRet) ];
+    function splitDraw(pAmt, sAmt, w){
+      var fromP = Math.min(w, pAmt);
+      return { fromP: fromP, fromS: w - fromP };
     }
 
     var rows = [], totalTax = 0, totalGrossAll = 0;
@@ -1556,6 +1565,9 @@
       var cashW = Math.min(remainingNeed, cashTotal); remainingNeed -= cashW;
       var stockW = Math.min(remainingNeed, stockTotal); remainingNeed -= stockW;
       var tfsaW = Math.min(remainingNeed, tfsaTotal); remainingNeed -= tfsaW;
+      var cashSplit = splitDraw(pCash, sCash, cashW);
+      var stockSplit = splitDraw(pStock, sStock, stockW);
+      var tfsaSplit = splitDraw(pTfsa, sTfsa, tfsaW);
 
       /* Last resort: every tax-free source is exhausted but the after-tax goal still
          isn't met — reach further into RRSP/RRIF, now crossing into a higher bracket. */
@@ -1580,21 +1592,24 @@
       }
 
       var pTaxable = pAuto+addP, sTaxable = married ? (sAuto+addS) : 0;
-      var tax, clawback;
+      var taxP, taxS, clawbackP, clawbackS;
       if(married && split){
-        var pooled = pTaxable+sTaxable, half = pooled/2;
-        tax = combinedTax(half, province)*2;
-        clawback = oasClawback(half, pOas) + oasClawback(half, sOas);
+        var pooled = pTaxable+sTaxable, half = pooled/2, halfTax = combinedTax(half, province);
+        taxP = halfTax; taxS = halfTax;
+        clawbackP = oasClawback(half, pOas); clawbackS = oasClawback(half, sOas);
       } else if(married){
-        tax = combinedTax(pTaxable, province) + combinedTax(sTaxable, province);
-        clawback = oasClawback(pTaxable, pOas) + oasClawback(sTaxable, sOas);
+        taxP = combinedTax(pTaxable, province); taxS = combinedTax(sTaxable, province);
+        clawbackP = oasClawback(pTaxable, pOas); clawbackS = oasClawback(sTaxable, sOas);
       } else {
-        tax = combinedTax(pTaxable, province);
-        clawback = oasClawback(pTaxable, pOas);
+        taxP = combinedTax(pTaxable, province); taxS = 0;
+        clawbackP = oasClawback(pTaxable, pOas); clawbackS = 0;
       }
 
-      var grossIncome = householdAuto + addP + addS + cashW + stockW + tfsaW;
-      var taxAndClawback = tax + clawback;
+      var grossP = pAuto + addP + cashSplit.fromP + stockSplit.fromP + tfsaSplit.fromP;
+      var grossS = sAuto + addS + cashSplit.fromS + stockSplit.fromS + tfsaSplit.fromS;
+      var taxAndClawbackP = taxP + clawbackP, taxAndClawbackS = taxS + clawbackS;
+      var grossIncome = grossP + grossS;
+      var taxAndClawback = taxAndClawbackP + taxAndClawbackS;
       totalTax += taxAndClawback;
       totalGrossAll += grossIncome;
 
@@ -1603,14 +1618,24 @@
         automatic: householdAuto, additionalRegistered: addP+addS,
         cashW: cashW, stockW: stockW, tfsaW: tfsaW,
         grossIncome: grossIncome, tax: taxAndClawback, afterTax: grossIncome-taxAndClawback,
-        shortfall: remainingNeed
+        shortfall: remainingNeed,
+        primary: {
+          automatic: pAuto, additionalRegistered: addP,
+          cashW: cashSplit.fromP, stockW: stockSplit.fromP, tfsaW: tfsaSplit.fromP,
+          gross: grossP, tax: taxAndClawbackP, afterTax: grossP - taxAndClawbackP
+        },
+        spouse: married ? {
+          automatic: sAuto, additionalRegistered: addS,
+          cashW: cashSplit.fromS, stockW: stockSplit.fromS, tfsaW: tfsaSplit.fromS,
+          gross: grossS, tax: taxAndClawbackS, afterTax: grossS - taxAndClawbackS
+        } : null
       });
 
       pReg = Math.max(pReg-pRrifMin-addP, 0) * (1+pRegRet);
       if(married) sReg = Math.max(sReg-sRrifMin-addS, 0) * (1+sRegRet);
-      var cashR = drawPool(pCash,pCashRet,sCash,sCashRet,cashW); pCash=cashR[0]; sCash=cashR[1];
-      var stockR = drawPool(pStock,pStockRet,sStock,sStockRet,stockW); pStock=stockR[0]; sStock=stockR[1];
-      var tfsaR = drawPool(pTfsa,pTfsaRet,sTfsa,sTfsaRet,tfsaW); pTfsa=tfsaR[0]; sTfsa=tfsaR[1];
+      pCash = Math.max(pCash-cashSplit.fromP, 0)*(1+pCashRet); sCash = Math.max(sCash-cashSplit.fromS, 0)*(1+sCashRet);
+      pStock = Math.max(pStock-stockSplit.fromP, 0)*(1+pStockRet); sStock = Math.max(sStock-stockSplit.fromS, 0)*(1+sStockRet);
+      pTfsa = Math.max(pTfsa-tfsaSplit.fromP, 0)*(1+pTfsaRet); sTfsa = Math.max(sTfsa-tfsaSplit.fromS, 0)*(1+sTfsaRet);
     }
 
     return { rows: rows, totalTax: totalTax, totalGross: totalGrossAll,
@@ -1918,19 +1943,37 @@
       ]);
     }
 
-    var rows = plan.rows.map(function(r){
-      return '<tr><td>'+r.age+'</td><td style="text-align:left;">'+r.phase+'</td>'
-        + '<td>'+fmtMoney0.format(Math.round(r.automatic))+'</td>'
-        + '<td>'+fmtMoney0.format(Math.round(r.additionalRegistered))+'</td>'
-        + '<td>'+fmtMoney0.format(Math.round(r.cashW+r.stockW))+'</td>'
-        + '<td>'+fmtMoney0.format(Math.round(r.tfsaW))+'</td>'
-        + '<td>'+fmtMoney0.format(Math.round(r.grossIncome))+'</td>'
-        + '<td>'+fmtMoney0.format(Math.round(r.tax))+'</td>'
-        + '<td>'+fmtMoney0.format(Math.round(r.afterTax))+'</td></tr>';
-    }).join('');
-    $('taxTable').innerHTML = '<thead><tr><th>Age</th><th style="text-align:left;">Phase</th><th>CPP/OAS/RRIF-min</th>'
-      + '<th>+RRSP/RRIF</th><th>+Cash/stock</th><th>+TFSA</th><th>Gross</th><th>Tax</th><th>After-tax</th></tr></thead>'
-      + '<tbody>'+rows+'</tbody>';
+    function personTable(tableId, rows, person){
+      var body = rows.map(function(r){
+        var p = r[person];
+        return '<tr><td>'+r.age+'</td><td style="text-align:left;">'+r.phase+'</td>'
+          + '<td>'+fmtMoney0.format(Math.round(p.automatic))+'</td>'
+          + '<td>'+fmtMoney0.format(Math.round(p.additionalRegistered))+'</td>'
+          + '<td>'+fmtMoney0.format(Math.round(p.cashW+p.stockW))+'</td>'
+          + '<td>'+fmtMoney0.format(Math.round(p.tfsaW))+'</td>'
+          + '<td>'+fmtMoney0.format(Math.round(p.gross))+'</td>'
+          + '<td>'+fmtMoney0.format(Math.round(p.tax))+'</td>'
+          + '<td>'+fmtMoney0.format(Math.round(p.afterTax))+'</td></tr>';
+      }).join('');
+      $(tableId).innerHTML = '<thead><tr><th>Age</th><th style="text-align:left;">Phase</th><th>CPP/OAS/RRIF-min</th>'
+        + '<th>+RRSP/RRIF</th><th>+Cash/stock</th><th>+TFSA</th><th>Gross</th><th>Tax</th><th>After-tax</th></tr></thead>'
+        + '<tbody>'+body+'</tbody>';
+    }
+
+    personTable('taxTable1', plan.rows, 'primary');
+    $('taxTable1Hint').textContent = m.married
+      ? (m.incomeSplit ? 'Tax is calculated on your half of the combined household income (income splitting is on).' : 'Tax is calculated on your own income only (income splitting is off).')
+      : '';
+
+    if(m.married){
+      $('taxTable2Card').style.display = '';
+      personTable('taxTable2', plan.rows, 'spouse');
+      $('taxTable2Hint').textContent = m.incomeSplit
+        ? 'Tax is calculated on your spouse’s half of the combined household income (income splitting is on).'
+        : 'Tax is calculated on your spouse’s own income only (income splitting is off).';
+    } else {
+      $('taxTable2Card').style.display = 'none';
+    }
   }
 
   (function(){
