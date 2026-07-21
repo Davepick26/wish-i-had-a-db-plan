@@ -213,6 +213,7 @@
   }
   .stat-tile.dc .swatch{ --dot: var(--dc); }
   .stat-tile.db .swatch{ --dot: var(--db); }
+  .stat-tile.critical .swatch{ --dot: var(--critical); }
   .stat-tile .value{
     font-size: clamp(30px, 3.6vw, 42px); font-weight:600; letter-spacing:-0.02em;
     line-height:1; margin-bottom:6px;
@@ -391,7 +392,8 @@
     .no-print, .theme-toggle, .reset-row, #saveLoadNote,
     #tableToggle1, #tableToggle2, .money-mode, #editGoalBtn,
     .goal-cta, .goal-return, .floaters, .tooltip,
-    #printPlannerBtn, #printTaxBtn, #goToTaxBtn, #taxHomeBtn, #backToPlannerBtn{
+    #printPlannerBtn, #printTaxBtn, #printNetWorthBtn, #goToTaxBtn, #goToNetWorthBtn,
+    #taxHomeBtn, #backToPlannerBtn, #netWorthHomeBtn, #netWorthBackBtn{
       display:none !important;
     }
     .layout{ grid-template-columns: 1fr !important; }
@@ -432,6 +434,7 @@
       <div style="display:flex; gap:8px;">
         <button type="button" class="toggle-btn" id="printPlannerBtn" title="Print this page">🖨 Print</button>
         <button type="button" class="toggle-btn" id="goToTaxBtn">Tax-optimized withdrawals →</button>
+        <button type="button" class="toggle-btn" id="goToNetWorthBtn">Net worth →</button>
       </div>
       <div class="theme-toggle" role="group" aria-label="Theme">
         <button type="button" data-theme-btn="light" aria-pressed="false">Light</button>
@@ -1000,6 +1003,110 @@
   </footer>
 </div>
 
+<div class="wrap" id="networthScreen" style="display:none;">
+
+  <header class="masthead">
+    <div class="titles">
+      <h1>Net worth <span class="maple">🍁</span></h1>
+      <p>A snapshot of what you own minus what you owe, right now — not a retirement projection.</p>
+    </div>
+    <div style="display:flex; gap:8px; flex-shrink:0;" class="no-print">
+      <button type="button" class="toggle-btn" id="printNetWorthBtn" title="Print this page">🖨 Print</button>
+      <button type="button" class="toggle-btn" id="netWorthBackBtn">← Back to planner</button>
+    </div>
+  </header>
+
+  <div class="card panel-card" style="margin-bottom:16px;">
+    <h2>From your retirement accounts<small>Edit these balances on the planner page</small></h2>
+    <div class="detail-grid" id="networthRetirementGrid"></div>
+  </div>
+
+  <div class="card panel-card" style="margin-bottom:16px;">
+    <h2>Other assets<small>Current value</small></h2>
+    <div class="field-row">
+      <div class="field">
+        <label for="homeValue">Home</label>
+        <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="homeValue" type="number" value="0" min="0" step="5000"></div>
+      </div>
+      <div class="field">
+        <label for="vehiclesValue">Vehicles</label>
+        <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="vehiclesValue" type="number" value="0" min="0" step="500"></div>
+      </div>
+      <div class="field">
+        <label for="otherAssetsValue">Other</label>
+        <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="otherAssetsValue" type="number" value="0" min="0" step="500"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card panel-card" style="margin-bottom:16px;">
+    <h2>Liabilities<small>Current balance owed</small></h2>
+    <div class="field-row">
+      <div class="field">
+        <label for="mortgageBalance">Mortgage</label>
+        <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="mortgageBalance" type="number" value="0" min="0" step="1000"></div>
+      </div>
+      <div class="field">
+        <label for="carLoanBalance">Car loan</label>
+        <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="carLoanBalance" type="number" value="0" min="0" step="500"></div>
+      </div>
+      <div class="field">
+        <label for="lineOfCreditBalance">Line of credit</label>
+        <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="lineOfCreditBalance" type="number" value="0" min="0" step="500"></div>
+      </div>
+    </div>
+    <div class="field-row" style="margin-top:12px;">
+      <div class="field">
+        <label for="creditCardDebt">Credit card debt</label>
+        <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="creditCardDebt" type="number" value="0" min="0" step="100"></div>
+      </div>
+      <div class="field">
+        <label for="otherLoansBalance">Other personal loans</label>
+        <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="otherLoansBalance" type="number" value="0" min="0" step="500"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card stat-tile dc" id="netWorthHeroCard" style="margin-bottom:16px;">
+    <div class="swatch">Net worth</div>
+    <div class="value" id="netWorthHero" style="font-size:clamp(40px,5vw,56px);">$0</div>
+    <div class="sub" id="netWorthHeroSub">total assets minus total liabilities</div>
+  </div>
+
+  <div class="compare-row" style="margin-bottom:16px;">
+    <div class="card stat-tile dc">
+      <div class="swatch">Total assets</div>
+      <div class="value" id="totalAssetsHero">$0</div>
+    </div>
+    <div class="card stat-tile critical">
+      <div class="swatch">Total liabilities</div>
+      <div class="value" id="totalLiabilitiesHero">$0</div>
+    </div>
+  </div>
+
+  <div class="card chart-card" style="margin-bottom:16px;">
+    <h2 style="border:0;padding:0;margin:0 0 4px;">Assets breakdown</h2>
+    <div class="chart-wrap" style="height:auto;">
+      <svg class="chart" id="chartAssetsBreakdown" viewBox="0 0 640 300" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+  </div>
+
+  <div class="card chart-card" id="liabilitiesBreakdownCard" style="margin-bottom:16px;">
+    <h2 style="border:0;padding:0;margin:0 0 4px;">Liabilities breakdown</h2>
+    <div class="chart-wrap" style="height:auto;">
+      <svg class="chart" id="chartLiabilitiesBreakdown" viewBox="0 0 640 300" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+  </div>
+
+  <footer class="disclosure">
+    <strong>This is a current snapshot, not a projection.</strong> It totals today's balances as you've entered
+    them — the retirement-account figures above come straight from the planner page (combined with your spouse's if
+    married) and update automatically when you change them there; everything else is entered here. It does not
+    model home appreciation, loan amortization/payoff schedules, or how any of this changes between now and
+    retirement — for that, use the planner and tax-optimized withdrawal pages. For education only, not financial advice.
+  </footer>
+</div>
+
 <script>
 (function(){
   "use strict";
@@ -1050,6 +1157,7 @@
     $('goalScreen').style.display = 'none';
     $('plannerScreen').style.display = 'none';
     $('taxScreen').style.display = 'none';
+    $('networthScreen').style.display = 'none';
   }
   function showPlanner(){
     var goalVal = $('goalMonthlyIncome').value;
@@ -1067,14 +1175,22 @@
     $('taxScreen').style.display = '';
     renderTaxPage();
   }
+  function showNetWorthPage(){
+    hideAllScreens();
+    $('networthScreen').style.display = '';
+    renderNetWorthPage();
+  }
   $('goalContinueBtn').addEventListener('click', showPlanner);
   $('goalMonthlyIncome').addEventListener('keydown', function(e){ if(e.key==='Enter') showPlanner(); });
   $('editGoalBtn').addEventListener('click', showGoalScreen);
   $('goToTaxBtn').addEventListener('click', showTaxPage);
+  $('goToNetWorthBtn').addEventListener('click', showNetWorthPage);
   $('backToPlannerBtn').addEventListener('click', showPlanner);
+  $('netWorthBackBtn').addEventListener('click', showPlanner);
   $('taxHomeBtn').addEventListener('click', showGoalScreen);
   $('printPlannerBtn').addEventListener('click', function(){ window.print(); });
   $('printTaxBtn').addEventListener('click', function(){ window.print(); });
+  $('printNetWorthBtn').addEventListener('click', function(){ window.print(); });
 
   /* ---------------- CPP/OAS start-age selects ---------------- */
   function fillAgeSelect(id, min, max, selected){
@@ -1109,7 +1225,9 @@
     "spouseCppAmount","spouseCppStart","spouseOasAmount","spouseOasStart",
     "spouseTfsaBalance","spouseTfsaContrib","spouseTfsaReturn","spouseRrspBalance","spouseRrspContrib","spouseRrspReturn",
     "spouseStockBalance","spouseStockContrib","spouseStockReturn","spouseCashBalance","spouseCashContrib","spouseCashReturn",
-    "spouseSerpBalance","spouseSerpContrib","spouseSerpReturn"];
+    "spouseSerpBalance","spouseSerpContrib","spouseSerpReturn",
+    "homeValue","vehiclesValue","otherAssetsValue",
+    "mortgageBalance","carLoanBalance","lineOfCreditBalance","creditCardDebt","otherLoansBalance"];
   var defaults = {};
   ids.forEach(function(id){ defaults[id] = $(id).value; });
   var checkboxDefaults = { dbIndexed:false, cppBridge:true, married:false, incomeSplit:true };
@@ -2236,6 +2354,99 @@
     } else {
       $('taxTable2Card').style.display = 'none';
     }
+  }
+
+  /* ---------------- net worth page ---------------- */
+  function computeNetWorth(){
+    var married = $('married').checked;
+    function both(id, spouseId){
+      return Math.max(num(id),0) + (married ? Math.max(num(spouseId),0) : 0);
+    }
+    var assets = [
+      { label:'DC plan', value: both('dcBalance','spouseDcBalance') },
+      { label:'RRSP', value: both('rrspBalance','spouseRrspBalance') },
+      { label:'TFSA', value: both('tfsaBalance','spouseTfsaBalance') },
+      { label:'Stocks (non-registered)', value: both('stockBalance','spouseStockBalance') },
+      { label:'Cash', value: both('cashBalance','spouseCashBalance') },
+      { label:'SERP', value: both('serpBalance','spouseSerpBalance') },
+      { label:'Home', value: Math.max(num('homeValue'),0) },
+      { label:'Vehicles', value: Math.max(num('vehiclesValue'),0) },
+      { label:'Other assets', value: Math.max(num('otherAssetsValue'),0) }
+    ];
+    var liabilities = [
+      { label:'Mortgage', value: Math.max(num('mortgageBalance'),0) },
+      { label:'Car loan', value: Math.max(num('carLoanBalance'),0) },
+      { label:'Line of credit', value: Math.max(num('lineOfCreditBalance'),0) },
+      { label:'Credit card debt', value: Math.max(num('creditCardDebt'),0) },
+      { label:'Other personal loans', value: Math.max(num('otherLoansBalance'),0) }
+    ];
+    var totalAssets = assets.reduce(function(s,a){ return s+a.value; }, 0);
+    var totalLiabilities = liabilities.reduce(function(s,a){ return s+a.value; }, 0);
+    return {
+      married: married, assets: assets, liabilities: liabilities,
+      totalAssets: totalAssets, totalLiabilities: totalLiabilities,
+      netWorth: totalAssets - totalLiabilities
+    };
+  }
+
+  function roundedBarPath(x, y, w, h, r){
+    r = Math.max(0, Math.min(r, w, h/2));
+    if(w<=0) return '';
+    return 'M'+x+','+y+' L'+(x+w-r)+','+y+' Q'+(x+w)+','+y+' '+(x+w)+','+(y+r)+
+      ' L'+(x+w)+','+(y+h-r)+' Q'+(x+w)+','+(y+h)+' '+(x+w-r)+','+(y+h)+
+      ' L'+x+','+(y+h)+' Z';
+  }
+  function renderBreakdownBars(svgId, items, colorVar, emptyMessage){
+    var svg = $(svgId);
+    svg.innerHTML = '';
+    var nonZero = items.filter(function(it){ return it.value > 0.5; }).sort(function(a,b){ return b.value-a.value; });
+    var W = 640;
+    if(!nonZero.length){
+      var H = 70;
+      svg.setAttribute('viewBox', '0 0 '+W+' '+H);
+      var t = svgEl('text', { x: W/2, y: H/2+4, 'text-anchor':'middle', style:'fill:var(--ink-muted); font-size:13px;' });
+      t.textContent = emptyMessage;
+      svg.appendChild(t);
+      return;
+    }
+    var padL = 4, padR = 96, padTop = 6, padBottom = 6;
+    var barH = 20, labelGap = 16, rowSpacing = 12;
+    var rowH = labelGap + barH + rowSpacing;
+    var H = padTop + padBottom + nonZero.length*rowH;
+    svg.setAttribute('viewBox', '0 0 '+W+' '+H);
+    var maxVal = Math.max.apply(null, nonZero.map(function(it){ return it.value; }));
+    var maxBarW = W - padL - padR;
+    nonZero.forEach(function(it, i){
+      var rowY = padTop + i*rowH;
+      var labelEl = svgEl('text', { x: padL, y: rowY+11, style:'fill:var(--ink-2); font-size:12px;' });
+      labelEl.textContent = it.label;
+      svg.appendChild(labelEl);
+      var barY = rowY + labelGap;
+      var barW = Math.max(3, (it.value/maxVal)*maxBarW);
+      svg.appendChild(svgEl('path', { d: roundedBarPath(padL, barY, barW, barH, 4), fill: colorVar }));
+      var valEl = svgEl('text', { x: padL+barW+8, y: barY+barH/2+4, style:'fill:var(--ink); font-size:12.5px; font-weight:600; font-variant-numeric:tabular-nums;' });
+      valEl.textContent = fmtMoney0.format(Math.round(it.value));
+      svg.appendChild(valEl);
+    });
+  }
+
+  function renderNetWorthPage(){
+    var nw = computeNetWorth();
+
+    $('networthRetirementGrid').innerHTML = nw.assets.slice(0,6).map(function(a){
+      return '<div class="detail-item"><div class="k">'+a.label+'</div><div class="v">'+fmtMoney0.format(Math.round(a.value))+'</div></div>';
+    }).join('') + (nw.married ? '<div class="detail-item"><div class="k">Combined with</div><div class="v">Spouse’s balances</div></div>' : '');
+
+    $('netWorthHero').textContent = fmtMoney0.format(Math.round(nw.netWorth));
+    $('netWorthHeroCard').className = 'card stat-tile ' + (nw.netWorth >= 0 ? 'dc' : 'critical');
+    $('netWorthHeroSub').textContent = fmtMoney0.format(Math.round(nw.totalAssets)) + ' in assets minus ' + fmtMoney0.format(Math.round(nw.totalLiabilities)) + ' in liabilities';
+    $('totalAssetsHero').textContent = fmtMoney0.format(Math.round(nw.totalAssets));
+    $('totalLiabilitiesHero').textContent = fmtMoney0.format(Math.round(nw.totalLiabilities));
+
+    renderBreakdownBars('chartAssetsBreakdown', nw.assets, 'var(--dc)', 'No assets entered yet.');
+    renderBreakdownBars('chartLiabilitiesBreakdown', nw.liabilities, 'var(--critical)', 'No liabilities entered — nothing owed.');
+
+    autoSaveState();
   }
 
   (function(){
