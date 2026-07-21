@@ -1025,7 +1025,7 @@
     <h2>Other assets<small>Current value</small></h2>
     <div class="field-row">
       <div class="field">
-        <label for="homeValue">Home</label>
+        <label for="homeValue">Home equity</label>
         <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="homeValue" type="number" value="0" min="0" step="5000"></div>
       </div>
       <div class="field">
@@ -1037,15 +1037,12 @@
         <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="otherAssetsValue" type="number" value="0" min="0" step="500"></div>
       </div>
     </div>
+    <div class="hint">Home equity is what you'd walk away with after selling and paying off the mortgage — not the home's full market value, and there's no separate mortgage liability below (it's already netted out here).</div>
   </div>
 
   <div class="card panel-card" style="margin-bottom:16px;">
     <h2>Liabilities<small>Current balance owed</small></h2>
     <div class="field-row">
-      <div class="field">
-        <label for="mortgageBalance">Mortgage</label>
-        <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="mortgageBalance" type="number" value="0" min="0" step="1000"></div>
-      </div>
       <div class="field">
         <label for="carLoanBalance">Car loan</label>
         <div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="carLoanBalance" type="number" value="0" min="0" step="500"></div>
@@ -1227,7 +1224,7 @@
     "spouseStockBalance","spouseStockContrib","spouseStockReturn","spouseCashBalance","spouseCashContrib","spouseCashReturn",
     "spouseSerpBalance","spouseSerpContrib","spouseSerpReturn",
     "homeValue","vehiclesValue","otherAssetsValue",
-    "mortgageBalance","carLoanBalance","lineOfCreditBalance","creditCardDebt","otherLoansBalance"];
+    "carLoanBalance","lineOfCreditBalance","creditCardDebt","otherLoansBalance"];
   var defaults = {};
   ids.forEach(function(id){ defaults[id] = $(id).value; });
   var checkboxDefaults = { dbIndexed:false, cppBridge:true, married:false, incomeSplit:true };
@@ -2369,12 +2366,11 @@
       { label:'Stocks (non-registered)', value: both('stockBalance','spouseStockBalance') },
       { label:'Cash', value: both('cashBalance','spouseCashBalance') },
       { label:'SERP', value: both('serpBalance','spouseSerpBalance') },
-      { label:'Home', value: Math.max(num('homeValue'),0) },
+      { label:'Home equity', value: Math.max(num('homeValue'),0) },
       { label:'Vehicles', value: Math.max(num('vehiclesValue'),0) },
       { label:'Other assets', value: Math.max(num('otherAssetsValue'),0) }
     ];
     var liabilities = [
-      { label:'Mortgage', value: Math.max(num('mortgageBalance'),0) },
       { label:'Car loan', value: Math.max(num('carLoanBalance'),0) },
       { label:'Line of credit', value: Math.max(num('lineOfCreditBalance'),0) },
       { label:'Credit card debt', value: Math.max(num('creditCardDebt'),0) },
