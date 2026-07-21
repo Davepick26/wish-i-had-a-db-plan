@@ -997,7 +997,9 @@
     clawback-affected ranges). Non-registered and cash withdrawals are treated as tax-free principal withdrawals here —
     in reality, capital gains and dividends in a non-registered account are taxable, which this page does not model.
     The basic personal amount is modeled as a simple deduction rather than the real credit mechanism, which affects
-    precision — Québec also has its own federal-tax abatement not modeled here. This is a heuristic, not a true
+    precision — though the federal BPA's high-income phase-out (clawed back between $181,440 and $258,482) and
+    Ontario's two-tier surtax (on Ontario tax over $5,818 and $7,446) are both modeled. Québec's own federal-tax
+    abatement is not modeled here. This is a heuristic, not a true
     optimizer: an actual optimizer could sequence withdrawals differently to reduce lifetime tax further. Speak with a
     qualified tax professional or financial planner before making withdrawal decisions.
   </footer>
@@ -1407,23 +1409,25 @@
 
   /* ---------------- tax brackets (approximate, illustrative ~2026 figures — verify against CRA/provincial sources) ---------------- */
   var TAX_DATA = {
-    federal: { bpa: 15700, brackets: [[58523,.14],[117045,.205],[181440,.26],[258482,.29],[Infinity,.33]] },
+    federal: { bpa: 16452, bpaMin: 14829, bpaPhaseStart: 181440, bpaPhaseEnd: 258482,
+      brackets: [[58523,.14],[117045,.205],[181440,.26],[258482,.29],[Infinity,.33]] },
     provinces: {
-      ON: { name:'Ontario', bpa: 12750, brackets: [[52900,.0505],[105775,.0915],[150000,.1116],[220000,.1216],[Infinity,.1316]] },
-      BC: { name:'British Columbia', bpa: 12750, brackets: [[49700,.0506],[99400,.077],[114000,.105],[138000,.1229],[188000,.147],[262000,.168],[Infinity,.205]] },
-      AB: { name:'Alberta', bpa: 22323, brackets: [[148269,.10],[177922,.12],[237230,.13],[355845,.14],[Infinity,.15]] },
+      ON: { name:'Ontario', bpa: 12989, brackets: [[53891,.0505],[107785,.0915],[150000,.1116],[220000,.1216],[Infinity,.1316]],
+        surtax: [[5818,.20],[7446,.36]] },
+      BC: { name:'British Columbia', bpa: 13216, brackets: [[50363,.056],[100728,.077],[115648,.105],[140430,.1229],[190405,.147],[265545,.168],[Infinity,.205]] },
+      AB: { name:'Alberta', bpa: 22769, brackets: [[61200,.08],[154259,.10],[185111,.12],[246813,.13],[370220,.14],[Infinity,.15]] },
       MB: { name:'Manitoba', bpa: 15780, brackets: [[47000,.108],[100000,.1275],[Infinity,.174]] },
-      SK: { name:'Saskatchewan', bpa: 18991, brackets: [[53000,.105],[151978,.125],[Infinity,.145]] },
-      QC: { name:'Quebec', bpa: 18571, brackets: [[53255,.14],[106495,.19],[129590,.24],[Infinity,.2575]] },
-      NB: { name:'New Brunswick', bpa: 13396, brackets: [[51306,.094],[102614,.14],[190060,.16],[Infinity,.195]] },
-      NS: { name:'Nova Scotia', bpa: 11744, brackets: [[30507,.0879],[61015,.1495],[95883,.1667],[154650,.175],[Infinity,.21]] },
-      PE: { name:'Prince Edward Island', bpa: 14250, brackets: [[33500,.095],[67000,.1347],[Infinity,.166]] },
-      NL: { name:'Newfoundland & Labrador', bpa: 11067, brackets: [[44192,.087],[88382,.145],[157792,.158],[220910,.178],[282214,.198],[564429,.218],[Infinity,.227]] },
-      YT: { name:'Yukon', bpa: 15700, brackets: [[58523,.064],[117045,.09],[181440,.109],[500000,.128],[Infinity,.15]] },
-      NT: { name:'Northwest Territories', bpa: 17373, brackets: [[50597,.059],[101198,.086],[164525,.122],[Infinity,.1405]] },
-      NU: { name:'Nunavut', bpa: 19274, brackets: [[53268,.04],[106537,.07],[173205,.09],[Infinity,.115]] }
+      SK: { name:'Saskatchewan', bpa: 20381, brackets: [[54532,.105],[155805,.125],[Infinity,.145]] },
+      QC: { name:'Quebec', bpa: 18952, brackets: [[54345,.14],[108680,.19],[132245,.24],[Infinity,.2575]] },
+      NB: { name:'New Brunswick', bpa: 13664, brackets: [[52333,.094],[104666,.14],[193861,.16],[Infinity,.195]] },
+      NS: { name:'Nova Scotia', bpa: 11932, brackets: [[30995,.0879],[61991,.1495],[97417,.1667],[157124,.175],[Infinity,.21]] },
+      PE: { name:'Prince Edward Island', bpa: 15000, brackets: [[33928,.095],[65820,.1347],[106890,.1660],[142250,.1762],[200000,.19],[Infinity,.20]] },
+      NL: { name:'Newfoundland & Labrador', bpa: 13094, brackets: [[44678,.087],[89354,.145],[159528,.158],[223340,.178],[285319,.198],[570638,.208],[1141275,.213],[Infinity,.218]] },
+      YT: { name:'Yukon', bpa: 16452, brackets: [[58523,.064],[117045,.09],[181440,.109],[258482,.1293],[500000,.128],[Infinity,.15]] },
+      NT: { name:'Northwest Territories', bpa: 18198, brackets: [[53003,.059],[106009,.086],[172346,.122],[Infinity,.1405]] },
+      NU: { name:'Nunavut', bpa: 19659, brackets: [[55801,.04],[111602,.07],[181439,.09],[Infinity,.115]] }
     },
-    oasClawbackThreshold: 93454,
+    oasClawbackThreshold: 95323,
     oasClawbackRate: 0.15
   };
   var PROVINCE_ORDER = ['ON','BC','AB','MB','SK','QC','NB','NS','PE','NL','YT','NT','NU'];
@@ -1443,21 +1447,67 @@
     }
     return tax;
   }
-  function combinedTax(income, provinceCode){
+  /* The federal basic personal amount isn't flat — it's clawed back on a straight
+     line from its full amount at $181,440 of income down to a floor at $258,482
+     (both figures happen to already be federal bracket thresholds). Above the
+     floor income it just stays at the minimum. */
+  function federalBpaAt(income){
+    var f = TAX_DATA.federal;
+    if(income <= f.bpaPhaseStart) return f.bpa;
+    if(income >= f.bpaPhaseEnd) return f.bpaMin;
+    var frac = (income - f.bpaPhaseStart) / (f.bpaPhaseEnd - f.bpaPhaseStart);
+    return f.bpa - (f.bpa - f.bpaMin) * frac;
+  }
+  /* Inverts taxOwed(income, bpa, brackets) = targetTax back to the income that
+     produces it — used to turn Ontario's surtax thresholds (given in dollars of
+     ON tax payable) into equivalent income thresholds, so the withdrawal-order
+     bracket ceiling can treat a surtax kick-in exactly like a bracket edge. */
+  function incomeForTax(targetTax, bpa, brackets){
+    var tax = 0, prev = 0;
+    for(var i=0;i<brackets.length;i++){
+      var thresh = brackets[i][0], rate = brackets[i][1];
+      var span = thresh - prev;
+      var taxInBracket = isFinite(span) ? span * rate : Infinity;
+      if(targetTax <= tax + taxInBracket){
+        return prev + (targetTax - tax) / rate + bpa;
+      }
+      tax += taxInBracket;
+      prev = thresh;
+    }
+    return Infinity;
+  }
+  /* Ontario layers two surtaxes on top of its own base provincial tax (not on
+     income directly): 20% on ON tax over $5,818, plus another 36% on ON tax over
+     $7,446 (additive — both apply once you're past the second threshold). */
+  function provincialTaxWithSurtax(income, provinceCode){
     var prov = TAX_DATA.provinces[provinceCode];
-    return taxOwed(income, TAX_DATA.federal.bpa, TAX_DATA.federal.brackets) + taxOwed(income, prov.bpa, prov.brackets);
+    var base = taxOwed(income, prov.bpa, prov.brackets);
+    if(!prov.surtax) return base;
+    var extra = 0;
+    prov.surtax.forEach(function(s){ extra += Math.max(0, base - s[0]) * s[1]; });
+    return base + extra;
+  }
+  function combinedTax(income, provinceCode){
+    var fedTax = taxOwed(income, federalBpaAt(income), TAX_DATA.federal.brackets);
+    return fedTax + provincialTaxWithSurtax(income, provinceCode);
   }
   function combinedBracketCeiling(income, provinceCode){
     var prov = TAX_DATA.provinces[provinceCode];
-    return Math.min(bracketCeilingAt(income, TAX_DATA.federal.brackets), bracketCeilingAt(income, prov.brackets));
+    var ceilings = [bracketCeilingAt(income, TAX_DATA.federal.brackets), bracketCeilingAt(income, prov.brackets)];
+    if(prov.surtax){
+      prov.surtax.forEach(function(s){
+        var t = incomeForTax(s[0], prov.bpa, prov.brackets);
+        if(t > income) ceilings.push(t);
+      });
+    }
+    return Math.min.apply(null, ceilings);
   }
-  function marginalRateAt(income, brackets){
-    for(var i=0;i<brackets.length;i++){ if(income <= brackets[i][0]) return brackets[i][1]; }
-    return brackets[brackets.length-1][1];
-  }
+  /* A numerical derivative rather than a bracket lookup: with the federal BPA
+     phase-out and Ontario's surtax, tax is no longer a simple step function of
+     income, so this correctly reflects the marginal rate through any of those
+     kinks without having to special-case each one. */
   function combinedMarginalRate(income, provinceCode){
-    var prov = TAX_DATA.provinces[provinceCode];
-    return marginalRateAt(income, TAX_DATA.federal.brackets) + marginalRateAt(income, prov.brackets);
+    return combinedTax(income+1, provinceCode) - combinedTax(income, provinceCode);
   }
   function oasClawback(income, oasReceived){
     return Math.min(oasReceived, Math.max(0, income - TAX_DATA.oasClawbackThreshold) * TAX_DATA.oasClawbackRate);
