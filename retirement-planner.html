@@ -154,6 +154,12 @@
   .field:last-child{ margin-bottom:0; }
   .field-row{ display:flex; gap:10px; }
   .field-row .field{ flex:1; }
+  .goal-phase-row{ align-items:flex-end; margin-bottom:12px; }
+  .goal-phase-remove{
+    flex-shrink:0; width:32px; height:32px; border:1px solid var(--line); border-radius:2px;
+    background:none; color:var(--ink-muted); cursor:pointer; font-size:14px; line-height:1;
+  }
+  .goal-phase-remove:hover{ color:var(--critical); border-color:var(--critical); }
   .field label{
     display:block; font-size: 12.5px; color: var(--ink-2); margin-bottom: 5px;
   }
@@ -934,6 +940,17 @@
     </div>
   </div>
 
+  <div class="card panel-card" style="margin-bottom:16px;">
+    <h2>Spending over time<small>Optional — step your after-tax goal down (or up) at different ages</small></h2>
+    <div class="detail-item" style="margin-bottom:14px;">
+      <div class="k">From retirement (age <span id="goalPhaseRetireAge"></span>)</div>
+      <div class="v" id="goalPhaseBaseDisplay">$0/mo</div>
+    </div>
+    <div id="goalPhasesList"></div>
+    <button type="button" class="toggle-btn" id="addGoalPhaseBtn">+ Add a spending change</button>
+    <div class="hint" style="margin-top:8px;">Each amount is after-tax and applies from its age onward until the next change (or the end of your plan). The first amount is your goal from the planner page — edit it there or with the button above.</div>
+  </div>
+
   <div class="compare-row" style="margin-bottom:16px;">
     <div class="card stat-tile dc">
       <div class="swatch">Total tax, over retirement</div>
@@ -1231,6 +1248,58 @@
   ids.forEach(function(id){ defaults[id] = $(id).value; });
   var checkboxDefaults = { dbIndexed:false, cppBridge:true, married:false, incomeSplit:true };
 
+  /* Optional additional after-tax spending phases beyond retirement — e.g. spend
+     more in the "go-go" years and step it down later. Phase one (from retirement)
+     is always goalMonthlyIncome itself; these are only the extra step-downs. */
+  var extraGoalPhases = [];
+  function getGoalPhases(retireAge){
+    var base = [{ startAge: retireAge, monthly: Math.max(num('goalMonthlyIncome'), 0) }];
+    var extras = extraGoalPhases
+      .filter(function(p){ return p.startAge > retireAge; })
+      .slice().sort(function(a,b){ return a.startAge - b.startAge; });
+    return base.concat(extras);
+  }
+  function renderGoalPhasesEditor(){
+    var retireAge = Math.round(num('retireAge'));
+    var planToAge = Math.round(num('planToAge'));
+    $('goalPhaseRetireAge').textContent = retireAge;
+    $('goalPhaseBaseDisplay').textContent = fmtMoney0.format(Math.max(num('goalMonthlyIncome'),0)) + '/mo';
+    extraGoalPhases.sort(function(a,b){ return a.startAge - b.startAge; });
+    var list = $('goalPhasesList');
+    list.innerHTML = extraGoalPhases.map(function(p, i){
+      return '<div class="field-row goal-phase-row" data-index="'+i+'">'
+        + '<div class="field"><label>From age</label><input type="number" class="goalPhaseAge" min="'+(retireAge+1)+'" max="'+planToAge+'" value="'+p.startAge+'"></div>'
+        + '<div class="field"><label>After-tax amount</label><div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input type="number" class="goalPhaseAmount" min="0" step="100" value="'+p.monthly+'"><span class="unit">/mo</span></div></div>'
+        + '<button type="button" class="goal-phase-remove" title="Remove this change">✕</button>'
+        + '</div>';
+    }).join('');
+    list.querySelectorAll('.goal-phase-row').forEach(function(row){
+      var i = Number(row.dataset.index);
+      row.querySelector('.goalPhaseAge').addEventListener('input', function(){
+        extraGoalPhases[i].startAge = Math.round(Number(this.value)) || retireAge+1;
+        renderTaxResults();
+      });
+      row.querySelector('.goalPhaseAmount').addEventListener('input', function(){
+        extraGoalPhases[i].monthly = Math.max(Number(this.value)||0, 0);
+        renderTaxResults();
+      });
+      row.querySelector('.goal-phase-remove').addEventListener('click', function(){
+        extraGoalPhases.splice(i,1);
+        renderTaxPage();
+      });
+    });
+  }
+  $('addGoalPhaseBtn').addEventListener('click', function(){
+    var retireAge = Math.round(num('retireAge'));
+    var planToAge = Math.round(num('planToAge'));
+    var phases = getGoalPhases(retireAge);
+    var last = phases[phases.length-1];
+    var nextAge = Math.min(last.startAge + 10, planToAge);
+    if(nextAge <= last.startAge) nextAge = Math.min(last.startAge + 1, planToAge);
+    extraGoalPhases.push({ startAge: nextAge, monthly: Math.round(last.monthly*0.8) });
+    renderTaxPage();
+  });
+
   var moneyMode = 'nominal';
   document.querySelectorAll('.money-mode .toggle-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
@@ -1273,6 +1342,7 @@
     CHECKBOX_IDS.forEach(function(id){ state[id] = $(id).checked; });
     state.goalMonthlyIncome = $('goalMonthlyIncome').value;
     if($('province')) state.province = $('province').value;
+    state.extraGoalPhases = extraGoalPhases;
     return state;
   }
   function applyState(state){
@@ -1284,6 +1354,11 @@
     });
     if(state.goalMonthlyIncome !== undefined) $('goalMonthlyIncome').value = state.goalMonthlyIncome;
     if(state.province !== undefined && $('province')) $('province').value = state.province;
+    if(Array.isArray(state.extraGoalPhases)){
+      extraGoalPhases = state.extraGoalPhases.filter(function(p){
+        return p && typeof p.startAge === 'number' && typeof p.monthly === 'number';
+      });
+    }
     $('bridgeAmountField').style.display = $('cppBridge').checked ? '' : 'none';
     syncMarried();
     syncDecumFields();
@@ -1774,9 +1849,20 @@
      within the current tax bracket, then TFSA, then cash, then non-registered
      stock. If income splitting is on, the household's combined taxable
      retirement income is pooled and divided evenly for tax purposes. */
-  function computeTaxPlan(m, province, goalAnnual){
+  function computeTaxPlan(m, province, goalPhases){
     var retireAge = m.retireAge, planToAge = m.planToAge, inflation = m.inflation;
     var married = m.married, split = m.incomeSplit;
+    /* goalPhases is a startAge-ascending list of {startAge, monthly}; the goal for
+       any given age is whichever phase's startAge is the latest one at or before
+       it. Each phase's dollar amount is in retirement-year terms and inflated
+       forward from retirement (j=0) like the original single-goal figure was —
+       not re-based to when that phase itself starts — so every phase shares one
+       consistent "today's dollars" reference point. */
+    function goalAnnualAt(age){
+      var monthly = goalPhases[0].monthly;
+      for(var k=0;k<goalPhases.length;k++){ if(age >= goalPhases[k].startAge) monthly = goalPhases[k].monthly; }
+      return monthly * 12;
+    }
 
     var pReg = m.primary.registeredAtRetirement, pRegRet = m.primary.registeredReturn;
     var pSerp = m.primary.serpAtRetirement;
@@ -1823,7 +1909,7 @@
     for(var j=0;j<=(planToAge-retireAge);j++){
       var age = retireAge+j;
       var infl = Math.pow(1+inflation, j);
-      var targetThisYear = goalAnnual*infl;
+      var targetThisYear = goalAnnualAt(age)*infl;
 
       var pCpp = age>=m.primary.cppStartAge ? m.primary.cppAtStart*Math.pow(1+inflation, age-m.primary.cppStartAge) : 0;
       var pOas = age>=m.primary.oasStartAge ? m.primary.oasAtStart*Math.pow(1+inflation, age-m.primary.oasStartAge) : 0;
@@ -2220,7 +2306,7 @@
 
     var goalMonthly = Math.max(num('goalMonthlyIncome'), 0);
     var goalPreviewProvince = getSelectedProvince();
-    var goalPreviewPlan = computeTaxPlan(m, goalPreviewProvince, goalMonthly*12);
+    var goalPreviewPlan = computeTaxPlan(m, goalPreviewProvince, getGoalPhases(m.retireAge));
     var actualMonthly = (goalPreviewPlan.rows.length ? goalPreviewPlan.rows[0].afterTax : 0) / 12;
 
     /* "Depleted" now means the same thing here as on the tax-optimized page: the first
@@ -2293,10 +2379,16 @@
 
   /* ---------------- tax page rendering ---------------- */
   function renderTaxPage(){
+    renderGoalPhasesEditor();
+    renderTaxResults();
+  }
+  /* Split from renderTaxPage so typing in a goal-phase field can refresh the
+     results without rebuilding the phase editor's own DOM out from under the
+     input the user is actively typing in (which would drop focus mid-keystroke). */
+  function renderTaxResults(){
     var m = computeModel();
     var province = $('province').value;
-    var goalAnnual = Math.max(num('goalMonthlyIncome'), 0) * 12;
-    var plan = computeTaxPlan(m, province, goalAnnual);
+    var plan = computeTaxPlan(m, province, getGoalPhases(m.retireAge));
 
     $('taxTotalHero').textContent = fmtMoney0.format(Math.round(plan.totalTax));
     $('taxRateHero').textContent = fmtNum0.format(Math.round(plan.effectiveRate*100)) + '%';
@@ -2401,6 +2493,8 @@
     } else {
       $('taxTable2Card').style.display = 'none';
     }
+
+    autoSaveState();
   }
 
   /* ---------------- net worth page ---------------- */
