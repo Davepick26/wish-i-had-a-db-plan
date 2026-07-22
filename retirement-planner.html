@@ -1443,7 +1443,10 @@
   });
 
   document.querySelectorAll('input').forEach(function(inp){
-    inp.addEventListener('input', render);
+    inp.addEventListener('input', function(){
+      render();
+      if($('networthScreen').style.display !== 'none') renderNetWorthPage();
+    });
   });
   ['cppStart','oasStart','spouseCppStart','spouseOasStart'].forEach(function(id){
     $(id).addEventListener('change', render);
@@ -2579,7 +2582,7 @@
 
     $('netWorthHero').textContent = fmtMoney0.format(Math.round(nw.netWorth));
     $('netWorthHeroCard').className = 'card stat-tile ' + (nw.netWorth >= 0 ? 'dc' : 'critical');
-    $('netWorthHeroSub').textContent = fmtMoney0.format(Math.round(nw.totalAssets)) + ' in assets minus ' + fmtMoney0.format(Math.round(nw.totalLiabilities)) + ' in liabilities';
+    $('netWorthHeroSub').textContent = fmtMoney0.format(Math.round(nw.totalAssets)) + ' assets − ' + fmtMoney0.format(Math.round(nw.totalLiabilities)) + ' liabilities = ' + fmtMoney0.format(Math.round(nw.netWorth));
     $('totalAssetsHero').textContent = fmtMoney0.format(Math.round(nw.totalAssets));
     $('totalLiabilitiesHero').textContent = fmtMoney0.format(Math.round(nw.totalLiabilities));
 
