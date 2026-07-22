@@ -396,7 +396,7 @@
     }
     body{ background:#fff; padding:0; }
     .no-print, .theme-toggle, .reset-row, #saveLoadNote,
-    #tableToggle1, #tableToggle2, .money-mode, #editGoalBtn,
+    #tableToggle1, #tableToggle2, #tableToggle3, .money-mode, #editGoalBtn,
     .goal-cta, .goal-return, .floaters, .tooltip,
     #printPlannerBtn, #printTaxBtn, #printNetWorthBtn, #goToTaxBtn, #goToNetWorthBtn,
     #taxHomeBtn, #backToPlannerBtn, #netWorthHomeBtn, #netWorthBackBtn{
@@ -885,6 +885,21 @@
           <div class="tooltip" id="tooltip2"></div>
         </div>
         <div class="table-scroll" id="table2" style="display:none;"></div>
+      </div>
+
+      <div class="card chart-card">
+        <div class="chart-head">
+          <div>
+            <h2 style="border:0;padding:0;margin:0 0 4px;">Annual withdrawal from savings, by age</h2>
+            <div class="legend"><span class="legend-item area"><span class="sw" style="background:var(--dc)"></span>Drawn from DC + RRSP + TFSA + stocks + cash (nominal $, excludes CPP/OAS)</span></div>
+          </div>
+          <button class="toggle-btn" id="tableToggle3" aria-pressed="false">View as table</button>
+        </div>
+        <div class="chart-wrap">
+          <svg class="chart" id="chartWithdrawal" viewBox="0 0 640 300" preserveAspectRatio="xMidYMid meet"></svg>
+          <div class="tooltip" id="tooltip3"></div>
+        </div>
+        <div class="table-scroll" id="table3" style="display:none;"></div>
       </div>
 
       <div class="card detail-card">
@@ -1452,7 +1467,7 @@
     $(id).addEventListener('change', render);
   });
 
-  var tableToggle1 = $('tableToggle1'), tableToggle2 = $('tableToggle2');
+  var tableToggle1 = $('tableToggle1'), tableToggle2 = $('tableToggle2'), tableToggle3 = $('tableToggle3');
   tableToggle1.addEventListener('click', function(){
     var showing = tableToggle1.getAttribute('aria-pressed') === 'true';
     tableToggle1.setAttribute('aria-pressed', String(!showing));
@@ -1462,6 +1477,11 @@
     var showing = tableToggle2.getAttribute('aria-pressed') === 'true';
     tableToggle2.setAttribute('aria-pressed', String(!showing));
     $('table2').style.display = showing ? 'none' : '';
+  });
+  tableToggle3.addEventListener('click', function(){
+    var showing = tableToggle3.getAttribute('aria-pressed') === 'true';
+    tableToggle3.setAttribute('aria-pressed', String(!showing));
+    $('table3').style.display = showing ? 'none' : '';
   });
 
   /* ---------------- model ---------------- */
@@ -1784,7 +1804,9 @@
         dcBalanceStart: regStart + otherStart,
         dcBalanceEnd: runReg + runOther,
         taxableIncomeNominal: regIncome + benefits,
-        nonTaxableIncomeNominal: otherIncome
+        nonTaxableIncomeNominal: otherIncome,
+        withdrawalNominal: regIncome + otherIncome,
+        withdrawalReal: (regIncome + otherIncome) / deflator
       });
     }
 
@@ -2294,6 +2316,40 @@
     $('table2').innerHTML = '<table class="data-table"><thead><tr><th>Age</th><th>Total balance</th></tr></thead><tbody>'+rows+'</tbody></table>';
   }
 
+  /* The balance chart above nets out growth against withdrawals into a single
+     line, which can look like nothing is coming out if returns outpace the
+     withdrawal rate — this chart makes the withdrawal itself, in isolation,
+     directly visible year by year. */
+  function renderWithdrawalChart(model){
+    var svg = $('chartWithdrawal');
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox','0 0 '+CW+' '+CH);
+    var data = model.decumulation;
+    if(!data.length) return;
+    var scales = buildScales(data, 'age', ['withdrawalNominal']);
+    drawAxes(svg, scales);
+
+    svg.appendChild(svgEl('path', { d: areaPathFor(data,'age','withdrawalNominal',scales), class:'series-area', style:'fill:var(--dc)' }));
+    svg.appendChild(svgEl('path', { d: pathFor(data,'age','withdrawalNominal',scales), class:'series-line', style:'stroke:var(--dc)' }));
+
+    if(model.depletionAge!==null && model.depletionAge <= model.planToAge){
+      var rx = scales.x(model.depletionAge);
+      svg.appendChild(svgEl('line', { x1:rx, x2:rx, y1:PAD.t, y2:CH-PAD.b, class:'ref-line' }));
+      var rl = svgEl('text', { x:rx+5, y:PAD.t+11, class:'ref-label' });
+      rl.textContent = 'Depleted, age '+model.depletionAge;
+      svg.appendChild(rl);
+    }
+
+    attachHover(svg, $('tooltip3'), data, scales, [ {key:'withdrawalNominal', color:'var(--dc)', label:'Withdrawn from savings'} ]);
+    renderTable3(model);
+  }
+  function renderTable3(model){
+    var rows = model.decumulation.map(function(d){
+      return '<tr><td>'+d.age+'</td><td>'+fmtMoney0.format(Math.round(d.withdrawalNominal))+'</td></tr>';
+    }).join('');
+    $('table3').innerHTML = '<table class="data-table"><thead><tr><th>Age</th><th>Withdrawn from savings</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  }
+
   /* ---------------- results text ---------------- */
   function render(){
     var m = computeModel();
@@ -2350,6 +2406,7 @@
 
     renderIncomeChart(m);
     renderBalanceChart(m);
+    renderWithdrawalChart(m);
 
     var detail = [
       ['Final salary before retirement', fmtMoney0.format(Math.round(m.finalSalary))],
