@@ -1,0 +1,15 @@
+{
+  "name": "Wish I Had a DB Plan",
+  "short_name": "DB Plan",
+  "description": "Compare your DC plan income against a theoretical Canadian defined benefit pension.",
+  "start_url": "./retirement-planner.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#1b4332",
+  "theme_color": "#1b4332",
+  "icons": [
+    { "src": "icon-256.png", "sizes": "256x256", "type": "image/png", "purpose": "any" },
+    { "src": "icon-256.png", "sizes": "256x256", "type": "image/png", "purpose": "maskable" }
+  ]
+}

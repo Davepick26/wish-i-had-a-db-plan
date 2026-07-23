@@ -1,6 +1,14 @@
 <meta charset="UTF-8">
 <title>Wish I Had a DB Plan — Retirement Income Planner</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b4332">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-256.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DB Plan">
 <style>
   :root{
     color-scheme: light;
@@ -2670,4 +2678,14 @@
   window.addEventListener('resize', render);
   render();
 })();
+</script>
+<script>
+  /* Only registers over HTTPS (or localhost) — service workers require a
+     secure context, so this silently no-ops on file:// (the desktop app)
+     and on plain http:// test servers, which is expected. */
+  if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')){
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js').catch(function(){});
+    });
+  }
 </script>
