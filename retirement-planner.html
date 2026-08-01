@@ -321,6 +321,12 @@
   }
   table.asset-table td input:focus{ outline: 2px solid var(--focus); outline-offset:0; border-color:transparent; }
 
+  .input-unit input[readonly], table.asset-table td input[readonly]{
+    background: var(--line); color: var(--ink-2); cursor: not-allowed;
+  }
+  .input-unit:has(input[readonly]){ background: var(--line); }
+  .sync-note a{ color: inherit; text-decoration: underline; }
+
   .detail-card{ padding: 16px 18px 18px; }
   .detail-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 14px 20px; }
   .detail-item .k{ font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-muted); margin-bottom:4px; }
@@ -406,8 +412,9 @@
     .no-print, .theme-toggle, .reset-row, #saveLoadNote,
     #tableToggle1, #tableToggle2, #tableToggle3, .money-mode, #editGoalBtn,
     .goal-cta, .goal-return, .floaters, .tooltip,
-    #printPlannerBtn, #printTaxBtn, #printNetWorthBtn, #goToTaxBtn, #goToNetWorthBtn,
-    #taxHomeBtn, #backToPlannerBtn, #netWorthHomeBtn, #netWorthBackBtn{
+    #printPlannerBtn, #printTaxBtn, #printNetWorthBtn, #printSavingsTrackerBtn,
+    #goToTaxBtn, #goToNetWorthBtn, #goToSavingsTrackerBtn,
+    #taxHomeBtn, #backToPlannerBtn, #netWorthHomeBtn, #netWorthBackBtn, #savingsTrackerBackBtn{
       display:none !important;
     }
     .layout{ grid-template-columns: 1fr !important; }
@@ -449,6 +456,7 @@
         <button type="button" class="toggle-btn" id="printPlannerBtn" title="Print this page">🖨 Print</button>
         <button type="button" class="toggle-btn" id="goToTaxBtn">Tax-optimized withdrawals →</button>
         <button type="button" class="toggle-btn" id="goToNetWorthBtn">Net worth →</button>
+        <button type="button" class="toggle-btn" id="goToSavingsTrackerBtn">Savings tracker →</button>
       </div>
       <div class="theme-toggle" role="group" aria-label="Theme">
         <button type="button" data-theme-btn="light" aria-pressed="false">Light</button>
@@ -513,6 +521,7 @@
 
       <div class="card panel-card" id="spouseCard1" style="display:none;">
         <h2>Spouse<small>Age, DC plan &amp; government benefits</small></h2>
+        <div class="hint sync-note" id="spouseDcSyncNote" style="display:none; margin-bottom:10px;">🔒 Balance synced from your <a href="#" id="spouseDcSyncLink">Savings Tracker</a> — add or edit a month there to update it.</div>
 
         <div class="field">
           <label for="spouseCurrentAge">Spouse's current age</label>
@@ -577,6 +586,7 @@
 
       <div class="card panel-card" id="spouseCard2" style="display:none;">
         <h2>Spouse — other savings<small>Combined into household totals</small></h2>
+        <div class="hint sync-note" id="spouseOtherSyncNote" style="display:none; margin-bottom:10px;">🔒 Balances synced from your <a href="#" id="spouseOtherSyncLink">Savings Tracker</a> — add or edit a month there to update them.</div>
         <div class="table-scroll" style="max-height:none; border-top:0; margin-top:0;">
           <table class="asset-table">
             <thead>
@@ -620,6 +630,7 @@
 
       <div class="card panel-card">
         <h2>Defined contribution plan<small>Your actual DC account</small></h2>
+        <div class="hint sync-note" id="dcSyncNote" style="display:none; margin-bottom:10px;">🔒 Balance synced from your <a href="#" id="dcSyncLink">Savings Tracker</a> — add or edit a month there to update it.</div>
 
         <div class="field">
           <label for="dcBalance">Current DC balance</label>
@@ -652,6 +663,7 @@
 
       <div class="card panel-card">
         <h2>Other savings &amp; investments<small>Combined with your DC balance for a total picture</small></h2>
+        <div class="hint sync-note" id="otherSyncNote" style="display:none; margin-bottom:10px;">🔒 Balances synced from your <a href="#" id="otherSyncLink">Savings Tracker</a> — add or edit a month there to update them.</div>
 
         <div class="table-scroll" style="max-height:none; border-top:0; margin-top:0;">
           <table class="asset-table">
@@ -1146,6 +1158,80 @@
   </footer>
 </div>
 
+<div class="wrap" id="savingsTrackerScreen" style="display:none;">
+
+  <header class="masthead">
+    <div class="titles">
+      <h1>Savings tracker <span class="maple">🍁</span></h1>
+      <p>Log your account balances month by month to track real growth over time. Your most recently logged month automatically becomes the current balance used everywhere else in the app.</p>
+    </div>
+    <div style="display:flex; gap:8px; flex-shrink:0;" class="no-print">
+      <button type="button" class="toggle-btn" id="printSavingsTrackerBtn" title="Print this page">🖨 Print</button>
+      <button type="button" class="toggle-btn" id="savingsTrackerBackBtn">← Back to planner</button>
+    </div>
+  </header>
+
+  <div class="card panel-card" style="margin-bottom:16px;">
+    <h2>Add or update a month</h2>
+    <div class="field" style="max-width:220px;">
+      <label for="savingsMonth">Month</label>
+      <div class="input-unit"><input type="month" id="savingsMonth"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label for="savingsDc">DC plan</label><div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="savingsDc" type="number" min="0" step="500" value="0"></div></div>
+      <div class="field"><label for="savingsRrsp">RRSP</label><div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="savingsRrsp" type="number" min="0" step="500" value="0"></div></div>
+      <div class="field"><label for="savingsTfsa">TFSA</label><div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="savingsTfsa" type="number" min="0" step="500" value="0"></div></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label for="savingsStock">Stocks</label><div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="savingsStock" type="number" min="0" step="500" value="0"></div></div>
+      <div class="field"><label for="savingsCash">Cash</label><div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="savingsCash" type="number" min="0" step="500" value="0"></div></div>
+      <div class="field"><label for="savingsSerp">SERP</label><div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="savingsSerp" type="number" min="0" step="500" value="0"></div></div>
+    </div>
+
+    <div id="savingsSpouseFields" style="display:none;">
+      <h2 style="margin-top:18px;">Spouse</h2>
+      <div class="field-row">
+        <div class="field"><label for="savingsSpouseDc">DC plan</label><div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="savingsSpouseDc" type="number" min="0" step="500" value="0"></div></div>
+        <div class="field"><label for="savingsSpouseRrsp">RRSP</label><div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="savingsSpouseRrsp" type="number" min="0" step="500" value="0"></div></div>
+        <div class="field"><label for="savingsSpouseTfsa">TFSA</label><div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="savingsSpouseTfsa" type="number" min="0" step="500" value="0"></div></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="savingsSpouseStock">Stocks</label><div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="savingsSpouseStock" type="number" min="0" step="500" value="0"></div></div>
+        <div class="field"><label for="savingsSpouseCash">Cash</label><div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="savingsSpouseCash" type="number" min="0" step="500" value="0"></div></div>
+        <div class="field"><label for="savingsSpouseSerp">SERP</label><div class="input-unit"><span class="unit" style="border-left:0;border-right:1px solid var(--line);order:-1">$</span><input id="savingsSpouseSerp" type="number" min="0" step="500" value="0"></div></div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:10px; margin-top:14px; align-items:center; flex-wrap:wrap;">
+      <button type="button" class="goal-cta" id="saveSavingsMonthBtn" style="flex:0 0 auto; padding:10px 20px;">Save this month</button>
+      <div class="hint" style="margin:0;" id="savingsEntryHint">Picking a month you've already logged loads its values so you can correct them; a new month starts from your most recent entry.</div>
+    </div>
+  </div>
+
+  <div class="card chart-card" style="margin-bottom:16px;">
+    <h2 style="border:0;padding:0;margin:0 0 4px;">Total household savings over time</h2>
+    <div class="chart-wrap">
+      <svg class="chart" id="chartSavingsHistory" viewBox="0 0 640 300" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="tooltip" id="tooltipSavingsHistory"></div>
+    </div>
+  </div>
+
+  <div class="card chart-card" style="margin-bottom:16px;">
+    <h2 style="border:0;padding:0;margin:0 0 4px;">History</h2>
+    <div class="table-scroll" style="max-height:460px;">
+      <table class="data-table" id="savingsHistoryTable"></table>
+    </div>
+  </div>
+
+  <footer class="disclosure">
+    <strong>The most recently logged month becomes your current balance everywhere else in the app</strong> — the Defined
+    Contribution, Other Savings, and Spouse cards on the planner page lock to these values once you've logged at least one
+    month here (delete every entry to unlock manual editing again). Growth shown is simple month-over-month change in
+    your entered totals, not a true annualized return — it doesn't distinguish market growth from money you added or
+    withdrew between entries.
+  </footer>
+</div>
+
 <script>
 (function(){
   "use strict";
@@ -1197,6 +1283,7 @@
     $('plannerScreen').style.display = 'none';
     $('taxScreen').style.display = 'none';
     $('networthScreen').style.display = 'none';
+    $('savingsTrackerScreen').style.display = 'none';
   }
   function showPlanner(){
     var goalVal = $('goalMonthlyIncome').value;
@@ -1219,17 +1306,29 @@
     $('networthScreen').style.display = '';
     renderNetWorthPage();
   }
+  function showSavingsTrackerPage(){
+    hideAllScreens();
+    $('savingsTrackerScreen').style.display = '';
+    renderSavingsTrackerPage();
+  }
   $('goalContinueBtn').addEventListener('click', showPlanner);
   $('goalMonthlyIncome').addEventListener('keydown', function(e){ if(e.key==='Enter') showPlanner(); });
   $('editGoalBtn').addEventListener('click', showGoalScreen);
   $('goToTaxBtn').addEventListener('click', showTaxPage);
   $('goToNetWorthBtn').addEventListener('click', showNetWorthPage);
+  $('goToSavingsTrackerBtn').addEventListener('click', showSavingsTrackerPage);
   $('backToPlannerBtn').addEventListener('click', showPlanner);
   $('netWorthBackBtn').addEventListener('click', showPlanner);
+  $('savingsTrackerBackBtn').addEventListener('click', showPlanner);
   $('taxHomeBtn').addEventListener('click', showGoalScreen);
   $('printPlannerBtn').addEventListener('click', function(){ window.print(); });
   $('printTaxBtn').addEventListener('click', function(){ window.print(); });
   $('printNetWorthBtn').addEventListener('click', function(){ window.print(); });
+  $('printSavingsTrackerBtn').addEventListener('click', function(){ window.print(); });
+  ['dcSyncLink','otherSyncLink','spouseDcSyncLink','spouseOtherSyncLink'].forEach(function(id){
+    var el = $(id);
+    if(el) el.addEventListener('click', function(e){ e.preventDefault(); showSavingsTrackerPage(); });
+  });
 
   /* ---------------- CPP/OAS start-age selects ---------------- */
   function fillAgeSelect(id, min, max, selected){
@@ -1323,6 +1422,203 @@
     renderTaxPage();
   });
 
+  /* ---------------- savings tracker ---------------- */
+  var savingsLog = []; // [{ month:'YYYY-MM', dc,rrsp,tfsa,stock,cash,serp, spouseDc,spouseRrsp,spouseTfsa,spouseStock,spouseCash,spouseSerp }]
+  var SAVINGS_FIELDS = ['dc','rrsp','tfsa','stock','cash','serp'];
+  var SAVINGS_TO_PLANNER_ID = { dc:'dcBalance', rrsp:'rrspBalance', tfsa:'tfsaBalance', stock:'stockBalance', cash:'cashBalance', serp:'serpBalance' };
+  var SAVINGS_TO_PLANNER_ID_SPOUSE = { dc:'spouseDcBalance', rrsp:'spouseRrspBalance', tfsa:'spouseTfsaBalance', stock:'spouseStockBalance', cash:'spouseCashBalance', serp:'spouseSerpBalance' };
+
+  function sortedSavingsLog(){ return savingsLog.slice().sort(function(a,b){ return a.month < b.month ? -1 : a.month > b.month ? 1 : 0; }); }
+  function findSavingsEntry(month){ return savingsLog.find(function(e){ return e.month === month; }); }
+  function savingsTotal(entry, married){
+    var t = 0;
+    SAVINGS_FIELDS.forEach(function(f){ t += Number(entry[f])||0; });
+    if(married) SAVINGS_FIELDS.forEach(function(f){ t += Number(entry['spouse'+f.charAt(0).toUpperCase()+f.slice(1)])||0; });
+    return t;
+  }
+  function currentMonthStr(){
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  }
+  function monthLabel(monthStr){
+    var parts = monthStr.split('-');
+    var d = new Date(Number(parts[0]), Number(parts[1])-1, 1);
+    return d.toLocaleDateString('en-US', { month:'short', year:'numeric' });
+  }
+
+  /* Once at least one month is logged, the tracker becomes the source of truth
+     for "current balance" — the planner's own balance fields lock to whatever
+     the most recent logged month says, rather than being independently typed
+     into in two places that could drift out of sync. */
+  function applySavingsSyncToPlanner(){
+    var sorted = sortedSavingsLog();
+    var latest = sorted.length ? sorted[sorted.length-1] : null;
+    var synced = !!latest;
+    SAVINGS_FIELDS.forEach(function(f){
+      var el = $(SAVINGS_TO_PLANNER_ID[f]);
+      if(synced) el.value = Number(latest[f])||0;
+      el.readOnly = synced;
+      var elS = $(SAVINGS_TO_PLANNER_ID_SPOUSE[f]);
+      if(synced) elS.value = Number(latest['spouse'+f.charAt(0).toUpperCase()+f.slice(1)])||0;
+      elS.readOnly = synced;
+    });
+    ['dcSyncNote','otherSyncNote','spouseDcSyncNote','spouseOtherSyncNote'].forEach(function(id){
+      $(id).style.display = synced ? '' : 'none';
+    });
+    render();
+    if($('networthScreen').style.display !== 'none') renderNetWorthPage();
+  }
+
+  function loadSavingsFormForMonth(month){
+    var married = $('married').checked;
+    var entry = findSavingsEntry(month);
+    if(!entry){
+      var sorted = sortedSavingsLog();
+      entry = sorted.length ? sorted[sorted.length-1] : null;
+    }
+    SAVINGS_FIELDS.forEach(function(f){
+      $('savings'+f.charAt(0).toUpperCase()+f.slice(1)).value = entry ? (Number(entry[f])||0) : 0;
+      var spouseId = 'savingsSpouse'+f.charAt(0).toUpperCase()+f.slice(1);
+      $(spouseId).value = entry && married ? (Number(entry['spouse'+f.charAt(0).toUpperCase()+f.slice(1)])||0) : 0;
+    });
+  }
+
+  function renderSavingsHistoryTable(){
+    var married = $('married').checked;
+    var sorted = sortedSavingsLog();
+    var rows = sorted.map(function(e, i){
+      var total = savingsTotal(e, married);
+      var prevTotal = i>0 ? savingsTotal(sorted[i-1], married) : null;
+      var chg = prevTotal!==null ? total-prevTotal : null;
+      var pct = prevTotal ? (chg/prevTotal*100) : null;
+      var chgCell = chg===null ? '—' : (chg>=0?'+':'')+fmtMoney0.format(Math.round(chg));
+      var pctCell = pct===null ? '—' : (pct>=0?'+':'')+pct.toFixed(1)+'%';
+      return '<tr><td style="text-align:left;">'+monthLabel(e.month)+'</td>'
+        + '<td>'+fmtMoney0.format(Math.round(total))+'</td>'
+        + '<td>'+chgCell+'</td><td>'+pctCell+'</td>'
+        + '<td><button type="button" class="toggle-btn savings-edit-row" data-month="'+e.month+'">Edit</button> '
+        + '<button type="button" class="toggle-btn savings-delete-row" data-month="'+e.month+'">Delete</button></td></tr>';
+    }).join('');
+    $('savingsHistoryTable').innerHTML = '<thead><tr><th style="text-align:left;">Month</th><th>Household total</th><th>Change</th><th>Change %</th><th></th></tr></thead><tbody>'+rows+'</tbody>';
+    $('savingsHistoryTable').querySelectorAll('.savings-edit-row').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        $('savingsMonth').value = btn.dataset.month;
+        loadSavingsFormForMonth(btn.dataset.month);
+        $('savingsMonth').closest('.card').scrollIntoView({ behavior:'smooth', block:'start' });
+      });
+    });
+    $('savingsHistoryTable').querySelectorAll('.savings-delete-row').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        savingsLog = savingsLog.filter(function(e){ return e.month !== btn.dataset.month; });
+        applySavingsSyncToPlanner();
+        renderSavingsTrackerPage();
+        autoSaveState();
+      });
+    });
+  }
+
+  function drawSavingsAxes(svg, scales, data){
+    var ticks = 5;
+    for(var i=0;i<=ticks;i++){
+      var val = scales.yMax * i/ticks;
+      var yy = scales.y(val);
+      svg.appendChild(svgEl('line', { x1:PAD.l, x2:CW-PAD.r, y1:yy, y2:yy, class:'grid-line' }));
+      var t = svgEl('text', { x:PAD.l-8, y:yy+3.5, class:'axis-text', 'text-anchor':'end' });
+      t.textContent = moneyShort(val);
+      svg.appendChild(t);
+    }
+    var n = data.length;
+    var xTicks = Math.min(n-1, 6);
+    for(var j=0;j<=xTicks;j++){
+      var idx = xTicks>0 ? Math.round(j/xTicks*(n-1)) : 0;
+      var xx = scales.x(idx);
+      var t2 = svgEl('text', { x:xx, y:CH-PAD.b+18, class:'axis-text', 'text-anchor':'middle' });
+      t2.textContent = monthLabel(data[idx].month);
+      svg.appendChild(t2);
+    }
+    svg.appendChild(svgEl('line', { x1:PAD.l, x2:CW-PAD.r, y1:CH-PAD.b, y2:CH-PAD.b, class:'grid-line', style:'stroke:var(--ink-muted)' }));
+  }
+  function attachSavingsHover(svg, tooltip, data, scales){
+    var crosshair = svgEl('line', { class:'crosshair', y1:PAD.t, y2:CH-PAD.b });
+    svg.appendChild(crosshair);
+    var dot = svgEl('circle', { class:'hover-dot', r:4, fill:'var(--dc)' });
+    svg.appendChild(dot);
+    var hit = svgEl('rect', { x:PAD.l, y:PAD.t, width:CW-PAD.l-PAD.r, height:CH-PAD.t-PAD.b, class:'hit-rect' });
+    svg.appendChild(hit);
+    function nearest(px){
+      var minD = Infinity, idx = 0;
+      data.forEach(function(d,i){ var dx = Math.abs(scales.x(d.idx)-px); if(dx<minD){ minD=dx; idx=i; } });
+      return idx;
+    }
+    function move(evt){
+      var rect = svg.getBoundingClientRect();
+      var clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+      var px = (clientX - rect.left) * (CW/rect.width);
+      var i = nearest(px);
+      var d = data[i];
+      var cx = scales.x(d.idx);
+      crosshair.setAttribute('x1', cx); crosshair.setAttribute('x2', cx); crosshair.style.opacity = 1;
+      dot.setAttribute('cx', cx); dot.setAttribute('cy', scales.y(d.total)); dot.style.opacity = 1;
+      tooltip.innerHTML = '<div class="t-age">'+monthLabel(d.month)+'</div><div class="t-row"><span class="t-dot" style="background:var(--dc)"></span>Household total: '+fmtMoney0.format(Math.round(d.total))+'</div>';
+      var wrapRect = svg.parentElement.getBoundingClientRect();
+      var leftPx = (cx/CW)*rect.width + (rect.left - wrapRect.left);
+      tooltip.style.left = leftPx+'px';
+      tooltip.style.top = ((scales.y(d.total)/CH)*rect.height - 10)+'px';
+      tooltip.style.opacity = 1;
+    }
+    function leave(){ crosshair.style.opacity = 0; dot.style.opacity = 0; tooltip.style.opacity = 0; }
+    hit.addEventListener('mousemove', move);
+    hit.addEventListener('mouseleave', leave);
+    hit.addEventListener('touchmove', function(e){ move(e); e.preventDefault(); }, {passive:false});
+    hit.addEventListener('touchend', leave);
+  }
+  function renderSavingsHistoryChart(){
+    var svg = $('chartSavingsHistory');
+    svg.innerHTML = '';
+    var married = $('married').checked;
+    var sorted = sortedSavingsLog();
+    if(!sorted.length){
+      svg.setAttribute('viewBox', '0 0 '+CW+' 80');
+      var t = svgEl('text', { x:CW/2, y:44, 'text-anchor':'middle', style:'fill:var(--ink-muted); font-size:13px;' });
+      t.textContent = 'Log at least one month to see your savings history here.';
+      svg.appendChild(t);
+      return;
+    }
+    svg.setAttribute('viewBox', '0 0 '+CW+' '+CH);
+    var data = sorted.map(function(e,i){ return { idx:i, month:e.month, total: savingsTotal(e, married) }; });
+    var scales = buildScales(data, 'idx', ['total']);
+    drawSavingsAxes(svg, scales, data);
+    svg.appendChild(svgEl('path', { d: areaPathFor(data,'idx','total',scales), class:'series-area', style:'fill:var(--dc)' }));
+    svg.appendChild(svgEl('path', { d: pathFor(data,'idx','total',scales), class:'series-line', style:'stroke:var(--dc)' }));
+    attachSavingsHover(svg, $('tooltipSavingsHistory'), data, scales);
+  }
+
+  function renderSavingsTrackerPage(){
+    var married = $('married').checked;
+    $('savingsSpouseFields').style.display = married ? '' : 'none';
+    if(!$('savingsMonth').value) $('savingsMonth').value = currentMonthStr();
+    loadSavingsFormForMonth($('savingsMonth').value);
+    renderSavingsHistoryTable();
+    renderSavingsHistoryChart();
+  }
+  $('savingsMonth').addEventListener('change', function(){ loadSavingsFormForMonth(this.value); });
+  $('saveSavingsMonthBtn').addEventListener('click', function(){
+    var month = $('savingsMonth').value;
+    if(!month){ $('savingsEntryHint').textContent = 'Pick a month first.'; return; }
+    var married = $('married').checked;
+    var entry = { month: month };
+    SAVINGS_FIELDS.forEach(function(f){
+      entry[f] = Math.max(Number($('savings'+f.charAt(0).toUpperCase()+f.slice(1)).value)||0, 0);
+      entry['spouse'+f.charAt(0).toUpperCase()+f.slice(1)] = married ? Math.max(Number($('savingsSpouse'+f.charAt(0).toUpperCase()+f.slice(1)).value)||0, 0) : 0;
+    });
+    savingsLog = savingsLog.filter(function(e){ return e.month !== month; });
+    savingsLog.push(entry);
+    applySavingsSyncToPlanner();
+    renderSavingsTrackerPage();
+    autoSaveState();
+    $('savingsEntryHint').textContent = 'Saved '+monthLabel(month)+'.';
+  });
+
   var moneyMode = 'nominal';
   document.querySelectorAll('.money-mode .toggle-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
@@ -1366,6 +1662,7 @@
     state.goalMonthlyIncome = $('goalMonthlyIncome').value;
     if($('province')) state.province = $('province').value;
     state.extraGoalPhases = extraGoalPhases;
+    state.savingsLog = savingsLog;
     return state;
   }
   function applyState(state){
@@ -1382,9 +1679,13 @@
         return p && typeof p.startAge === 'number' && typeof p.monthly === 'number';
       });
     }
+    if(Array.isArray(state.savingsLog)){
+      savingsLog = state.savingsLog.filter(function(e){ return e && typeof e.month === 'string'; });
+    }
     $('bridgeAmountField').style.display = $('cppBridge').checked ? '' : 'none';
     syncMarried();
     syncDecumFields();
+    applySavingsSyncToPlanner();
     render();
   }
   function autoSaveState(){
