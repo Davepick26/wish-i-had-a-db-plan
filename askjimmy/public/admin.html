@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AskJimmy — Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main>
+    <h1>Admin</h1>
+    <p class="demo-note">This page isn't linked anywhere in the site nav and has no login gate yet — anyone with the URL can see it. Fine for solo testing, not for a real launch.</p>
+
+    <h2 style="font-size:1.1rem;">Support requests</h2>
+    <div id="supportList"></div>
+
+    <h2 style="font-size:1.1rem; margin-top:24px;">Ad inquiries</h2>
+    <div id="adList"></div>
+  </main>
+
+  <script src="/common.js"></script>
+  <script>
+    function timeAgo(iso) {
+      return new Date(iso).toLocaleString();
+    }
+
+    async function loadSupport() {
+      const res = await fetch('/api/support-requests');
+      const items = await res.json();
+      const el = document.getElementById('supportList');
+
+      if (items.length === 0) {
+        el.innerHTML = `<div class="empty-state">No support requests yet.</div>`;
+        return;
+      }
+
+      el.innerHTML = items
+        .slice()
+        .reverse()
+        .map(
+          (r) => `
+        <div class="card">
+          <p class="listing-title">${r.name} <span class="badge">${r.category}</span></p>
+          <p class="listing-meta">${r.email} · ${timeAgo(r.createdAt)}</p>
+          <p style="margin-top:8px;">${r.message}</p>
+        </div>
+      `
+        )
+        .join('');
+    }
+
+    async function loadAdInquiries() {
+      const res = await fetch('/api/ad-inquiries');
+      const items = await res.json();
+      const el = document.getElementById('adList');
+
+      if (items.length === 0) {
+        el.innerHTML = `<div class="empty-state">No ad inquiries yet.</div>`;
+        return;
+      }
+
+      el.innerHTML = items
+        .slice()
+        .reverse()
+        .map(
+          (r) => `
+        <div class="card">
+          <p class="listing-title">${r.businessName}</p>
+          <p class="listing-meta">${r.email}${r.phone ? ' · ' + r.phone : ''} · ${timeAgo(r.createdAt)}</p>
+          <p style="margin-top:8px;">${r.message || '<em>No message provided</em>'}</p>
+        </div>
+      `
+        )
+        .join('');
+    }
+
+    loadSupport();
+    loadAdInquiries();
+  </script>
+</body>
+</html>

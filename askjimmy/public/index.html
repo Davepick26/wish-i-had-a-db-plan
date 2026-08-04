@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AskJimmy — Browse</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="browse-layout">
+    <aside class="ad-sidebar" id="adSidebarLeft"></aside>
+
+    <main>
+      <div class="hero-banner">
+        <h2>Sell without the back-and-forth</h2>
+        <p class="hint" style="color:rgba(255,255,255,0.85); margin:-6px 0 12px;">Serving towns, cities, and communities across Nova Scotia, Prince Edward Island, New Brunswick, and Newfoundland &amp; Labrador.</p>
+        <div class="benefit-row">
+          <div class="benefit">No negotiating</div>
+          <div class="benefit">No direct messaging with strangers</div>
+          <div class="benefit">Average cost per listing is $5 or less</div>
+          <div class="benefit">Let Jimmy do all the hard work for you</div>
+        </div>
+      </div>
+
+      <h1>Browse listings</h1>
+
+      <div class="chat-input-row" style="margin-bottom:14px;">
+        <input type="text" id="locationInput" placeholder="Search by town, city, or community — e.g. Moncton, Charlottetown, St. John's" />
+        <button id="locationSearchBtn">Search</button>
+      </div>
+
+      <p class="hint" id="quickLinksLabel" style="display:none;">Popular searches</p>
+      <div id="quickLinks" class="quick-links"></div>
+      <div id="filterBanner"></div>
+      <div id="list"></div>
+      <div id="pagination" class="pagination"></div>
+    </main>
+
+    <aside class="ad-sidebar" id="adSidebarRight"></aside>
+  </div>
+
+  <script src="/common.js"></script>
+  <script>
+    renderHeader('browse');
+    document.getElementById('adSidebarLeft').innerHTML = weatherBoxHTML() + adBoxHTML('Feature your business to everyone browsing today.');
+    document.getElementById('adSidebarRight').innerHTML =
+      `<p class="demo-note" style="margin-bottom:0;">Prototype note: Jimmy is running on scripted negotiation logic for now, not a live AI model — see the README for how that gets upgraded.</p>` +
+      countdownBoxHTML() +
+      adBoxHTML('Sponsor this category and get seen first.');
+    loadWeatherBox();
+    loadCountdownBox();
+    const myId = getMyId();
+    const PAGE_SIZE = 20;
+    let allListings = [];
+    let currentPage = 1;
+
+    function renderCards() {
+      const listEl = document.getElementById('list');
+
+      if (allListings.length === 0) {
+        listEl.innerHTML = `<div class="empty-state">No matching listings. <a href="#" onclick="clearFilter(); return false;">Show everything</a>.</div>`;
+        document.getElementById('pagination').innerHTML = '';
+        return;
+      }
+
+      const totalPages = Math.max(1, Math.ceil(allListings.length / PAGE_SIZE));
+      currentPage = Math.min(currentPage, totalPages);
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const pageItems = allListings.slice(start, start + PAGE_SIZE);
+
+      listEl.innerHTML = pageItems
+        .map(
+          (l) => `
+        <a class="card listing-card" href="/listing.html?id=${l.id}" style="text-decoration:none; color:inherit;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            ${
+              l.photos && l.photos.length
+                ? `<img src="${l.photos[0]}" style="width:56px;height:56px;object-fit:contain;background:#f0efe9;border-radius:8px;flex-shrink:0" />`
+                : `<div style="width:56px;height:56px;border-radius:8px;background:#eee;flex-shrink:0"></div>`
+            }
+            <div>
+              <p class="listing-title">${l.title} ${l.status === 'sold' ? '<span class="badge sold">Sold</span>' : ''}</p>
+              <p class="listing-meta">${l.category} · ${l.location || 'Location not specified'}</p>
+              <p class="listing-meta">${l.createdAt ? formatPostedDate(l.createdAt) : ''}</p>
+            </div>
+          </div>
+          <div class="price-tag">${Number(l.askingPrice) === 0 ? 'Free' : '$' + l.askingPrice}</div>
+        </a>
+      `
+        )
+        .join('');
+
+      renderPagination(totalPages);
+    }
+
+    function renderPagination(totalPages) {
+      const el = document.getElementById('pagination');
+      if (totalPages <= 1) {
+        el.innerHTML = '';
+        return;
+      }
+
+      let pages = '';
+      for (let p = 1; p <= totalPages; p++) {
+        pages += `<button class="page-btn ${p === currentPage ? 'active' : ''}" data-page="${p}">${p}</button>`;
+      }
+      el.innerHTML = `
+        <button class="page-btn" data-page="${currentPage - 1}" ${currentPage === 1 ? 'disabled' : ''}>Prev</button>
+        ${pages}
+        <button class="page-btn" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'disabled' : ''}>Next</button>
+      `;
+      el.querySelectorAll('.page-btn[data-page]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          currentPage = Number(btn.dataset.page);
+          renderCards();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      });
+    }
+
+    async function load() {
+      const res = await fetch(`/api/listings?viewerId=${myId}`);
+      const listings = await res.json();
+      document.getElementById('filterBanner').innerHTML = '';
+      allListings = listings.slice().reverse();
+      currentPage = 1;
+      renderCards();
+    }
+
+    function clearFilter() {
+      load();
+    }
+
+    async function runQuickSearch(term) {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(term)}`);
+      const results = await res.json();
+      document.getElementById('filterBanner').innerHTML = `
+        <p class="hint">Showing results for "${term}" — <a href="#" onclick="clearFilter(); return false;">show everything</a></p>
+      `;
+      allListings = results;
+      currentPage = 1;
+      renderCards();
+    }
+
+    async function loadQuickLinks() {
+      const res = await fetch('/api/popular-searches');
+      const items = await res.json();
+      const el = document.getElementById('quickLinks');
+      const label = document.getElementById('quickLinksLabel');
+
+      if (items.length === 0) {
+        el.innerHTML = '';
+        label.style.display = 'none';
+        return;
+      }
+      label.style.display = 'block';
+      label.textContent = items[0].count > 0 ? 'Popular searches' : 'Browse by category';
+
+      el.innerHTML = items.map((i, idx) => `<button class="quick-link" data-idx="${idx}">${i.query}</button>`).join('');
+      el.querySelectorAll('.quick-link').forEach((btn) => {
+        btn.addEventListener('click', () => runQuickSearch(items[Number(btn.dataset.idx)].query));
+      });
+    }
+
+    document.getElementById('locationSearchBtn').addEventListener('click', () => {
+      const term = document.getElementById('locationInput').value.trim();
+      if (term) runQuickSearch(term);
+    });
+    document.getElementById('locationInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('locationSearchBtn').click();
+    });
+
+    load();
+    loadQuickLinks();
+  </script>
+</body>
+</html>

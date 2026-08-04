@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AskJimmy — Sell an item</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main>
+    <h1 id="pageTitle">Sell an item</h1>
+
+    <div id="profileStep" style="display:none">
+      <p class="demo-note">Quick one-time step — this stands in for a real account/login later.</p>
+      <form class="card" id="profileForm">
+        <label>Your name</label>
+        <input type="text" id="profileName" required />
+        <label>Phone number</label>
+        <input type="tel" id="profilePhone" required placeholder="For pickup coordination (SMS verification comes later)" />
+        <label>Default pickup address / neighborhood</label>
+        <input type="text" id="profileAddress" placeholder="e.g. Riverview, NB or Cornwall, PE" />
+
+        <div class="security-note">
+          🔒 <strong>Your card is safe with us.</strong> We only ever store the last 4 digits and expiry — never your full card number. It's kept private and is never shown to buyers or other sellers, and you're only charged if your item actually sells.
+        </div>
+
+        <label>Card number</label>
+        <input type="text" id="profileCardNumber" required placeholder="For the AskJimmy fee — only charged if it sells" inputmode="numeric" />
+        <label>Expiry (MM/YY)</label>
+        <input type="text" id="profileCardExpiry" required placeholder="MM/YY" />
+        <label>Postal/zip code</label>
+        <input type="text" id="profileCardPostal" required placeholder="For card verification (AVS)" />
+        <p class="hint">This is a prototype — nothing is actually charged or sent anywhere. See "How fees work" above for details.</p>
+
+        <button type="submit">Continue</button>
+      </form>
+    </div>
+
+    <div id="paymentStep" style="display:none">
+      <p class="demo-note">One more thing — add a payment method so Jimmy can collect the success fee if this sells.</p>
+      <form class="card" id="paymentForm">
+        <div class="security-note">
+          🔒 <strong>Your card is safe with us.</strong> We only ever store the last 4 digits and expiry — never your full card number. It's kept private and is never shown to buyers or other sellers, and you're only charged if your item actually sells.
+        </div>
+
+        <label>Card number</label>
+        <input type="text" id="paymentCardNumber" required inputmode="numeric" />
+        <label>Expiry (MM/YY)</label>
+        <input type="text" id="paymentCardExpiry" required placeholder="MM/YY" />
+        <label>Postal/zip code</label>
+        <input type="text" id="paymentCardPostal" required placeholder="For card verification (AVS)" />
+        <p class="hint">This is a prototype — nothing is actually charged or sent anywhere.</p>
+        <button type="submit">Continue</button>
+      </form>
+    </div>
+
+    <div id="listingStep" style="display:none">
+      <p class="demo-note">Jimmy will ask buyers these details automatically and negotiate within your price range.</p>
+
+      <form class="card" id="listingForm">
+        <label>Photos</label>
+        <p class="hint" id="photoLimitHint" style="margin-top:0;">Up to 8 photos total.</p>
+        <input type="file" id="photos" accept="image/*" multiple />
+        <div class="pill-row" id="photoPreview"></div>
+        <div class="pill-row" id="existingPhotos"></div>
+
+        <label>Title</label>
+        <input type="text" id="title" required placeholder="e.g. Grey 3-seat couch" />
+
+        <label>Category</label>
+        <select id="category"></select>
+
+        <label>Location</label>
+        <input type="text" id="location" required placeholder="e.g. Gander, NL or Truro, NS" />
+        <p class="hint">Shown to buyers browsing — keep it general (neighborhood/town/city), not your exact address.</p>
+
+        <label>Description</label>
+        <textarea id="description" rows="3" placeholder="A few sentences a buyer would want to know"></textarea>
+
+        <label>Let Jimmy ask you about it</label>
+        <p class="hint">Jimmy will ask a few questions to get as much detail as possible for buyers — answer in the chat below.</p>
+        <div class="chat-window" id="jimmyListingChat" style="margin-bottom:10px;"></div>
+        <div class="chat-input-row" style="margin-bottom:14px;">
+          <input type="text" id="jimmyListingInput" placeholder="Type your answer…" />
+          <button type="button" id="jimmyListingSend">Send</button>
+        </div>
+
+        <label>Details collected so far (you can edit these directly too)</label>
+        <div id="checklistFields"></div>
+
+        <div class="checklist-row" style="align-items:center; margin-top:14px;">
+          <label style="display:flex; align-items:center; gap:8px; font-weight:400; margin:0;">
+            <input type="checkbox" id="isFree" style="width:auto;" />
+            This is a free giveaway
+          </label>
+        </div>
+
+        <label>Asking price ($)</label>
+        <input type="number" id="askingPrice" min="0" required />
+
+        <label>Floor price ($) — Jimmy won't go below this</label>
+        <input type="number" id="floorPrice" min="0" required />
+        <p class="hint">If interest is high in the first 24 hours, Jimmy can also push buyers above your asking price — that logic comes in a later version of this prototype.</p>
+
+        <div class="offer-box" style="margin-top:14px;">
+          <div>
+            <strong id="feeEstimate">Estimated AskJimmy fee: $0.00</strong>
+            <p class="hint" style="margin-top:2px;">Charged only if it sells — 5% under $100, 2% above, never more than $20. Free giveaways never owe a fee.</p>
+          </div>
+        </div>
+
+        <label>Pickup options</label>
+        <div class="checklist-row">
+          <input type="text" id="pickup1" placeholder="e.g. Wednesday 6pm, Clayton Park" />
+        </div>
+        <div class="checklist-row">
+          <input type="text" id="pickup2" placeholder="Alternate option (optional)" />
+        </div>
+        <div class="security-note">🛟 For your safety, choose a well-lit, populated public place for pickup — a mall parking lot, grocery store, or police station lobby are good options. Avoid meeting alone at a private residence with a stranger.</div>
+
+        <button type="submit" id="submitBtn">Publish listing</button>
+      </form>
+    </div>
+  </main>
+
+  <script src="/common.js"></script>
+  <script>
+    renderHeader('create');
+    const myId = getMyId();
+    const editId = new URLSearchParams(location.search).get('edit');
+
+    const CHECKLISTS = {
+      Furniture: ['Condition', 'Material', 'Dimensions', 'Pet/smoke exposure'],
+      Electronics: ['Condition', 'Brand/model', 'Age', 'Original packaging'],
+      'Clothing & Accessories': ['Size', 'Condition', 'Brand', 'Color'],
+      Appliances: ['Condition', 'Brand/model', 'Age', 'Working condition'],
+      'Home & Garden': ['Condition', 'Material', 'Dimensions', 'Indoor/outdoor'],
+      'Sporting Goods & Outdoors': ['Condition', 'Brand/model', 'Size', 'Age'],
+      'Bikes & Scooters': ['Condition', 'Brand/model', 'Frame/wheel size', 'Electric or manual'],
+      Vehicles: ['Condition', 'Make/model', 'Year', 'VIN', 'Mileage', 'Reason for selling'],
+      'Baby & Kids': ['Condition', 'Age range', 'Brand', 'Any recalls'],
+      'Tools & Equipment': ['Condition', 'Brand/model', 'Power source', 'Age'],
+      'Books, Movies & Music': ['Condition', 'Format', 'Title/edition'],
+      'Musical Instruments': ['Condition', 'Brand/model', 'Age', 'Case included'],
+      'Toys & Games': ['Condition', 'Age range', 'Complete / missing pieces'],
+      'Jewelry & Watches': ['Condition', 'Material', 'Brand', 'Authenticity/papers'],
+      'General / Other': ['Condition', 'Age', 'Reason for selling'],
+    };
+
+    const categorySelect = document.getElementById('category');
+    categorySelect.innerHTML = Object.keys(CHECKLISTS)
+      .map((c) => `<option value="${c}">${c}</option>`)
+      .join('');
+
+    function renderChecklist(prefill) {
+      const category = categorySelect.value;
+      const fields = CHECKLISTS[category] || CHECKLISTS['General / Other'];
+      document.getElementById('checklistFields').innerHTML = fields
+        .map(
+          (f) => `
+        <div class="checklist-row">
+          <input type="text" data-field="${f}" placeholder="${f}" value="${(prefill && prefill[f]) || ''}" />
+        </div>
+      `
+        )
+        .join('');
+    }
+    categorySelect.addEventListener('change', () => {
+      renderChecklist();
+      startListingChat();
+    });
+    renderChecklist();
+
+    // ---- Jimmy's listing-detail interview ----
+    let chatQueue = [];
+    let chatIndex = 0;
+    const WRAP_UP_MARKER = '__wrapup__';
+
+    function chatBubble(text, sender) {
+      if (sender === 'jimmy') {
+        return `<div class="jimmy-message-row"><img src="/jimmy-logo.png" class="jimmy-avatar small" alt="" /><div class="bubble jimmy">${text}</div></div>`;
+      }
+      return `<div class="bubble buyer">${text}</div>`;
+    }
+
+    function addChatBubble(text, sender) {
+      const win = document.getElementById('jimmyListingChat');
+      win.innerHTML += chatBubble(text, sender);
+      win.scrollTop = win.scrollHeight;
+    }
+
+    function startListingChat() {
+      const category = categorySelect.value;
+      const fields = CHECKLISTS[category] || CHECKLISTS['General / Other'];
+      chatQueue = [...fields, WRAP_UP_MARKER];
+      chatIndex = 0;
+      document.getElementById('jimmyListingChat').innerHTML = '';
+      document.getElementById('jimmyListingInput').disabled = false;
+      document.getElementById('jimmyListingSend').disabled = false;
+      addChatBubble(
+        `Let's get this ${document.getElementById('title').value || 'item'} ready to list. I'll ask a few quick questions so buyers have everything they need.`,
+        'jimmy'
+      );
+      askNextChatQuestion();
+    }
+
+    function askNextChatQuestion() {
+      const field = chatQueue[chatIndex];
+      if (field === WRAP_UP_MARKER) {
+        addChatBubble('Anything else buyers should know — flaws, accessories included, reason for selling?', 'jimmy');
+      } else {
+        const phrased = field === field.toUpperCase() ? field : field.toLowerCase();
+        addChatBubble(`What's the ${phrased}?`, 'jimmy');
+      }
+    }
+
+    document.getElementById('jimmyListingSend').addEventListener('click', handleListingChatSend);
+    document.getElementById('jimmyListingInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleListingChatSend();
+    });
+
+    function handleListingChatSend() {
+      const input = document.getElementById('jimmyListingInput');
+      const answer = input.value.trim();
+      if (!answer) return;
+      addChatBubble(answer, 'buyer');
+      input.value = '';
+
+      const field = chatQueue[chatIndex];
+      if (field === WRAP_UP_MARKER) {
+        const description = document.getElementById('description');
+        description.value = description.value ? `${description.value} ${answer}` : answer;
+      } else {
+        const target = document.querySelector(`#checklistFields input[data-field="${field}"]`);
+        if (target) target.value = answer;
+      }
+
+      chatIndex++;
+      if (chatIndex >= chatQueue.length) {
+        addChatBubble("Perfect, that's everything I need! Review the details below, then set your price whenever you're ready.", 'jimmy');
+        input.disabled = true;
+        document.getElementById('jimmyListingSend').disabled = true;
+      } else {
+        askNextChatQuestion();
+      }
+    }
+
+    if (!editId) startListingChat();
+
+    function updateFeeEstimate() {
+      const price = document.getElementById('askingPrice').value;
+      const fee = calculateFee(price);
+      document.getElementById('feeEstimate').textContent =
+        fee === 0 ? 'Free listing — no AskJimmy fee' : `Estimated AskJimmy fee: $${fee.toFixed(2)}`;
+    }
+    document.getElementById('askingPrice').addEventListener('input', updateFeeEstimate);
+    updateFeeEstimate();
+
+    document.getElementById('isFree').addEventListener('change', (e) => {
+      const askingInput = document.getElementById('askingPrice');
+      const floorInput = document.getElementById('floorPrice');
+      if (e.target.checked) {
+        askingInput.value = '0';
+        floorInput.value = '0';
+        askingInput.disabled = true;
+        floorInput.disabled = true;
+      } else {
+        askingInput.disabled = false;
+        floorInput.disabled = false;
+        askingInput.value = '';
+        floorInput.value = '';
+      }
+      updateFeeEstimate();
+    });
+
+    let existingPhotoCount = 0;
+
+    document.getElementById('photos').addEventListener('change', (e) => {
+      const preview = document.getElementById('photoPreview');
+      let files = [...e.target.files];
+      const remaining = 8 - existingPhotoCount;
+
+      if (files.length > remaining) {
+        alert(
+          remaining > 0
+            ? `You can have up to 8 photos total. Only the first ${remaining} new photo${remaining === 1 ? '' : 's'} will be used.`
+            : `You already have 8 photos on this listing — remove one before adding more.`
+        );
+        files = files.slice(0, Math.max(remaining, 0));
+        const dt = new DataTransfer();
+        files.forEach((f) => dt.items.add(f));
+        e.target.files = dt.files;
+      }
+
+      preview.innerHTML = '';
+      files.forEach((file) => {
+        const url = URL.createObjectURL(file);
+        preview.innerHTML += `<img src="${url}" style="width:72px;height:72px;object-fit:contain;background:#f0efe9;border-radius:8px" />`;
+      });
+    });
+
+    // ---- profile + payment gate ----
+    async function checkProfile() {
+      const res = await fetch(`/api/sellers/${myId}`);
+      if (res.ok) {
+        const profile = await res.json();
+        if (!editId) {
+          document.getElementById('pickup1').value = profile.pickupAddress || '';
+          document.getElementById('location').value = profile.pickupAddress || '';
+        }
+        if (!profile.paymentLast4) {
+          document.getElementById('paymentStep').style.display = 'block';
+        } else {
+          document.getElementById('listingStep').style.display = 'block';
+        }
+      } else {
+        document.getElementById('profileStep').style.display = 'block';
+      }
+      if (editId) await loadForEdit();
+    }
+    checkProfile();
+
+    document.getElementById('paymentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const res = await fetch(`/api/sellers/${myId}/payment-method`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cardNumber: document.getElementById('paymentCardNumber').value,
+          expiry: document.getElementById('paymentCardExpiry').value,
+          postalCode: document.getElementById('paymentCardPostal').value,
+        }),
+      });
+      if (!res.ok) {
+        alert('Please enter a valid card number, expiry, and postal/zip code.');
+        return;
+      }
+      document.getElementById('paymentStep').style.display = 'none';
+      document.getElementById('listingStep').style.display = 'block';
+    });
+
+    async function loadForEdit() {
+      const res = await fetch(`/api/listings/${editId}?viewerId=${myId}`);
+      const listing = await res.json();
+      if (!res.ok || listing.sellerId !== myId) {
+        alert("Couldn't load that listing to edit.");
+        location.href = '/dashboard.html';
+        return;
+      }
+
+      document.getElementById('pageTitle').textContent = 'Edit listing';
+      document.getElementById('submitBtn').textContent = 'Save changes';
+      document.getElementById('title').value = listing.title;
+      categorySelect.value = listing.category;
+      renderChecklist(listing.checklist);
+      document.getElementById('location').value = listing.location || '';
+      document.getElementById('description').value = listing.description || '';
+      document.getElementById('askingPrice').value = listing.askingPrice;
+      document.getElementById('floorPrice').value = listing.floorPrice;
+      document.getElementById('pickup1').value = (listing.pickupOptions || [])[0] || '';
+      document.getElementById('pickup2').value = (listing.pickupOptions || [])[1] || '';
+      if (Number(listing.askingPrice) === 0) {
+        document.getElementById('isFree').checked = true;
+        document.getElementById('askingPrice').disabled = true;
+        document.getElementById('floorPrice').disabled = true;
+      }
+      updateFeeEstimate();
+
+      existingPhotoCount = (listing.photos || []).length;
+      if (listing.photos && listing.photos.length) {
+        document.getElementById('existingPhotos').innerHTML =
+          `<p class="hint" style="width:100%">Current photos (${existingPhotoCount}/8 — adding new ones below will add to these):</p>` +
+          listing.photos
+            .map((p) => `<img src="${p}" class="thumb-clickable" onclick="openLightbox('${p}')" style="width:72px;height:72px;object-fit:contain;background:#f0efe9;border-radius:8px" />`)
+            .join('');
+      }
+    }
+
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const body = {
+        sellerId: myId,
+        name: document.getElementById('profileName').value,
+        phone: document.getElementById('profilePhone').value,
+        pickupAddress: document.getElementById('profileAddress').value,
+      };
+      const res = await fetch('/api/sellers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        alert('Please fill in your name and phone number.');
+        return;
+      }
+
+      const paymentRes = await fetch(`/api/sellers/${myId}/payment-method`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cardNumber: document.getElementById('profileCardNumber').value,
+          expiry: document.getElementById('profileCardExpiry').value,
+          postalCode: document.getElementById('profileCardPostal').value,
+        }),
+      });
+      if (!paymentRes.ok) {
+        alert('Please enter a valid card number, expiry, and postal/zip code.');
+        return;
+      }
+
+      document.getElementById('profileStep').style.display = 'none';
+      if (body.pickupAddress) {
+        document.getElementById('pickup1').value = body.pickupAddress;
+        document.getElementById('location').value = body.pickupAddress;
+      }
+      document.getElementById('listingStep').style.display = 'block';
+    });
+
+    document.getElementById('listingForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const checklist = {};
+      document.querySelectorAll('#checklistFields input').forEach((input) => {
+        if (input.value.trim()) checklist[input.dataset.field] = input.value.trim();
+      });
+
+      const pickupOptions = [document.getElementById('pickup1').value, document.getElementById('pickup2').value].filter(
+        (v) => v && v.trim()
+      );
+
+      const formData = new FormData();
+      formData.append('sellerId', myId);
+      formData.append('title', document.getElementById('title').value);
+      formData.append('category', categorySelect.value);
+      formData.append('location', document.getElementById('location').value);
+      formData.append('description', document.getElementById('description').value);
+      formData.append('checklist', JSON.stringify(checklist));
+      formData.append('askingPrice', document.getElementById('askingPrice').value);
+      formData.append('floorPrice', document.getElementById('floorPrice').value);
+      formData.append('pickupOptions', JSON.stringify(pickupOptions));
+      [...document.getElementById('photos').files].forEach((file) => formData.append('photos', file));
+
+      const res = await fetch(`/api/listings${editId ? '/' + editId : ''}`, {
+        method: editId ? 'PATCH' : 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Something went wrong');
+        return;
+      }
+      location.href = `/listing.html?id=${editId || data.id}`;
+    });
+  </script>
+</body>
+</html>

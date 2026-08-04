@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AskJimmy — Listing</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main id="app">Loading…</main>
+
+  <script src="/common.js"></script>
+  <script>
+    renderHeader();
+    const myId = getMyId();
+    const listingId = new URLSearchParams(location.search).get('id');
+    let listing = null;
+
+    function bubble(m) {
+      if (m.sender === 'jimmy') {
+        return `<div class="jimmy-message-row"><img src="/jimmy-logo.png" class="jimmy-avatar small" alt="" /><div class="bubble jimmy">${m.text}</div></div>`;
+      }
+      return `<div class="bubble ${m.sender}">${m.text}</div>`;
+    }
+
+    async function loadRelated() {
+      const el = document.getElementById('relatedSection');
+      if (!el) return;
+      const res = await fetch(`/api/listings/${listingId}/related`);
+      const related = await res.json();
+      if (related.length === 0) {
+        el.innerHTML = '';
+        return;
+      }
+
+      el.innerHTML = `
+        <h2 style="font-size:1.05rem;">Related searches</h2>
+        <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:18px;">
+          ${related
+            .map(
+              (r) => `
+            <a class="card listing-card" href="/listing.html?id=${r.id}" style="text-decoration:none; color:inherit;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                ${
+                  r.photos && r.photos.length
+                    ? `<img src="${r.photos[0]}" style="width:48px;height:48px;object-fit:contain;background:#f0efe9;border-radius:8px;flex-shrink:0" />`
+                    : `<div style="width:48px;height:48px;border-radius:8px;background:#eee;flex-shrink:0"></div>`
+                }
+                <div>
+                  <p class="listing-title">${r.title}</p>
+                  <p class="listing-meta">${r.category} · ${r.location || 'Location not specified'}</p>
+                </div>
+              </div>
+              <div class="price-tag">${Number(r.askingPrice) === 0 ? 'Free' : '$' + r.askingPrice}</div>
+            </a>
+          `
+            )
+            .join('')}
+        </div>
+      `;
+    }
+
+    async function refreshListing() {
+      const res = await fetch(`/api/listings/${listingId}?viewerId=${myId}`);
+      listing = await res.json();
+      render();
+    }
+
+    function render() {
+      const app = document.getElementById('app');
+      if (!listing || listing.error) {
+        app.innerHTML = `<p>Listing not found.</p>`;
+        return;
+      }
+
+      const isOwner = listing.sellerId === myId;
+
+      const photoRow = (listing.photos && listing.photos.length)
+        ? `<div class="pill-row" style="margin-bottom:12px">${listing.photos
+            .map(
+              (p) =>
+                `<img src="${p}" class="thumb-clickable" onclick="openLightbox('${p}')" style="width:110px;height:110px;object-fit:contain;background:#f0efe9;border-radius:10px" />`
+            )
+            .join('')}</div>`
+        : '';
+
+      if (isOwner) {
+        app.innerHTML = `
+          <h1>${listing.title}</h1>
+          <p class="demo-note">This is your listing. Jimmy negotiates with buyers privately — check <a href="/dashboard.html">My listings</a> to review offers.</p>
+          ${photoRow}
+          <div class="card">
+            <p class="listing-meta">${listing.category} · ${listing.location || 'Location not specified'}</p>
+            <p>${Number(listing.askingPrice) === 0 ? '<strong>Free giveaway</strong>' : `<strong>Asking:</strong> $${listing.askingPrice} &nbsp; <strong>Floor:</strong> $${listing.floorPrice}`}</p>
+            <p>${listing.description}</p>
+            ${Object.entries(listing.checklist || {}).map(([k, v]) => `<p class="listing-meta"><strong>${k}:</strong> ${v}</p>`).join('')}
+          </div>
+
+          <div id="relatedSection"></div>
+        `;
+        loadRelated();
+        return;
+      }
+
+      const convo = (listing.myConversation) || null;
+
+      app.innerHTML = `
+        <h1>${listing.title} ${listing.status === 'sold' ? '<span class="badge sold">Sold</span>' : ''}</h1>
+        ${photoRow}
+        <div class="card">
+          <p class="listing-meta">${listing.category} · ${listing.location || 'Location not specified'}</p>
+          <p class="price-tag">${Number(listing.askingPrice) === 0 ? 'Free' : '$' + listing.askingPrice}</p>
+          <p>${listing.description}</p>
+          ${Object.entries(listing.checklist || {}).map(([k, v]) => `<p class="listing-meta"><strong>${k}:</strong> ${v}</p>`).join('')}
+        </div>
+
+        ${adBoxHTML()}
+
+        <div id="relatedSection"></div>
+
+        <h2>Chat with Jimmy</h2>
+        <div class="chat-window" id="chatWindow"></div>
+        <div id="chatControls"></div>
+      `;
+      loadRelated();
+
+      const chatWindow = document.getElementById('chatWindow');
+      const messages = (convo && convo.messages) || [
+        { sender: 'jimmy', text: `Hi! I'm Jimmy, negotiating this ${listing.title} on the seller's behalf. Ask me anything, or make an offer.` },
+      ];
+      chatWindow.innerHTML = messages.map(bubble).join('');
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+
+      const controls = document.getElementById('chatControls');
+      const status = convo && convo.status;
+
+      if (listing.status === 'sold' && status !== 'confirmed') {
+        controls.innerHTML = `<p class="hint">This item has sold.</p>`;
+        return;
+      }
+
+      if (status === 'agreed_pending_buyer_confirm') {
+        const options = (listing.pickupOptions || []).map((p) => `<label><input type="radio" name="pickup" value="${p}"> ${p}</label>`).join('') ||
+          '<label><input type="radio" name="pickup" value="To be arranged" checked> To be arranged</label>';
+        controls.innerHTML = `
+          <div class="offer-box">
+            <div>
+              <strong>Agreed price: $${convo.agreedPrice}</strong>
+              <div class="pill-row">${options}</div>
+            </div>
+            <div>
+              <button class="small" onclick="confirmDeal()">Confirm deal</button>
+              <button class="small secondary" onclick="cancelAgreement()">Cancel</button>
+            </div>
+          </div>
+          <p class="hint" style="margin-top:8px;">🛟 For your safety, meet in a well-lit, populated public place — avoid meeting alone at a private residence.</p>
+          <p class="hint">Or just keep chatting below if you'd rather negotiate further.</p>
+          <div class="chat-input-row">
+            <input type="text" id="chatInput" placeholder="Ask a question or make a different offer…" />
+            <button onclick="sendMessage()">Send</button>
+          </div>
+        `;
+        document.getElementById('chatInput').addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') sendMessage();
+        });
+        return;
+      }
+
+      if (status === 'agreed_pending_seller') {
+        controls.innerHTML = `<p class="hint">Waiting on the seller to confirm final pickup details…</p>`;
+        return;
+      }
+
+      if (status === 'confirmed') {
+        controls.innerHTML = `<p class="hint">Deal confirmed — see you at pickup!</p>`;
+        return;
+      }
+
+      controls.innerHTML = `
+        <div class="chat-input-row">
+          <input type="text" id="chatInput" placeholder="Ask a question or make an offer, e.g. 'Would you take $80?'" />
+          <button onclick="sendMessage()">Send</button>
+        </div>
+      `;
+      document.getElementById('chatInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') sendMessage();
+      });
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const message = input.value.trim();
+      if (!message) return;
+      input.value = '';
+      input.disabled = true;
+
+      const res = await fetch(`/api/listings/${listingId}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buyerId: myId, buyerName: getMyName(), message }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Something went wrong sending that message.');
+        return;
+      }
+      await refreshListing();
+      if (data.blocked) {
+        alert('Your account has been blocked due to repeated use of inappropriate language.');
+      }
+    }
+
+    async function confirmDeal() {
+      const chosen = document.querySelector('input[name="pickup"]:checked');
+      await fetch(`/api/listings/${listingId}/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buyerId: myId, pickupChoice: chosen ? chosen.value : 'To be arranged' }),
+      });
+      await refreshListing();
+    }
+
+    async function cancelAgreement() {
+      await fetch(`/api/listings/${listingId}/cancel-agreement`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buyerId: myId }),
+      });
+      await refreshListing();
+    }
+
+    refreshListing();
+  </script>
+</body>
+</html>

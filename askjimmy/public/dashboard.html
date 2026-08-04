@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AskJimmy — My listings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main>
+    <h1>My listings</h1>
+    <p class="demo-note">Jimmy negotiates privately with every buyer and only brings you the single best offer to approve.</p>
+    <div id="list"></div>
+  </main>
+
+  <script src="/common.js"></script>
+  <script>
+    renderHeader();
+    const myId = getMyId();
+    let currentListings = [];
+
+    async function load() {
+      const res = await fetch(`/api/dashboard?sellerId=${myId}`);
+      const listings = await res.json();
+      currentListings = listings;
+      const listEl = document.getElementById('list');
+
+      if (listings.length === 0) {
+        listEl.innerHTML = `<div class="empty-state">You haven't listed anything yet. <a href="/create.html">Sell an item</a>.</div>`;
+        return;
+      }
+
+      listEl.innerHTML = listings
+        .map((l) => {
+          const offerHtml = l.pendingOffer
+            ? `
+            <div class="offer-box">
+              <div>
+                <strong>${l.pendingOffer.buyerName} agreed to $${l.pendingOffer.price}</strong>
+                <div class="pill-row">
+                  ${(l.pickupOptions || []).map((p) => `<label><input type="radio" name="pickup-${l.id}" value="${p}"> ${p}</label>`).join('') ||
+                    '<label><input type="radio" name="pickup-' + l.id + '" value="To be arranged" checked> To be arranged</label>'}
+                </div>
+              </div>
+              <div>
+                <button class="small" onclick="approve('${l.id}', '${l.pendingOffer.buyerId}')">Approve</button>
+                <button class="small secondary" onclick="decline('${l.id}', '${l.pendingOffer.buyerId}')">Decline</button>
+              </div>
+            </div>
+          `
+            : `<p class="hint">${l.uniqueBuyers} unique buyer${l.uniqueBuyers === 1 ? '' : 's'} talking to Jimmy so far. No offer ready for your approval yet.</p>`;
+
+          const thumb = l.photos && l.photos.length
+            ? `<img src="${l.photos[0]}" class="thumb-clickable" onclick="openLightbox('${l.photos[0]}')" style="width:56px;height:56px;object-fit:contain;background:#f0efe9;border-radius:8px;flex-shrink:0" />`
+            : `<div style="width:56px;height:56px;border-radius:8px;background:#eee;flex-shrink:0"></div>`;
+
+          return `
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                ${thumb}
+                <div>
+                  <p class="listing-title">${l.title} ${l.status === 'sold' ? '<span class="badge sold">Sold</span>' : ''}</p>
+                  <p class="listing-meta">${Number(l.askingPrice) === 0 ? 'Free giveaway' : `Asking $${l.askingPrice} · Floor $${l.floorPrice}`}</p>
+                  <p class="listing-meta">${l.location || 'Location not specified'} · ${formatPostedDate(l.createdAt)}</p>
+                </div>
+              </div>
+              <div>
+                <a class="small secondary" style="display:inline-block; text-decoration:none; border:1px solid var(--border); border-radius:8px; padding:6px 12px; margin-right:6px; color:inherit;" href="/create.html?edit=${l.id}">Edit</a>
+                <button class="small secondary" onclick="removeListing('${l.id}')">Delete</button>
+              </div>
+            </div>
+            ${l.status === 'sold' ? '' : offerHtml}
+          </div>
+        `;
+        })
+        .join('');
+    }
+
+    async function approve(listingId, buyerId) {
+      const checked = document.querySelector(`input[name="pickup-${listingId}"]:checked`);
+      await fetch(`/api/listings/${listingId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buyerId, pickupChoice: checked ? checked.value : 'To be arranged' }),
+      });
+      load();
+    }
+
+    async function decline(listingId, buyerId) {
+      await fetch(`/api/listings/${listingId}/decline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buyerId }),
+      });
+      load();
+    }
+
+    async function removeListing(listingId) {
+      const listing = currentListings.find((l) => l.id === listingId);
+      const title = listing ? listing.title : 'this listing';
+      if (!confirm(`Delete "${title}"? This can't be undone.`)) return;
+
+      const res = await fetch(`/api/listings/${listingId}?sellerId=${myId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || 'Could not delete this listing.');
+        return;
+      }
+      load();
+    }
+
+    load();
+  </script>
+</body>
+</html>

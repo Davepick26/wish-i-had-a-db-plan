@@ -7,3 +7,7 @@ type-to-survive/
 # Electron app build artifacts
 node_modules/
 dist/
+
+# AskJimmy runtime data (contains real user info from local testing)
+askjimmy/data/
+askjimmy/public/uploads/

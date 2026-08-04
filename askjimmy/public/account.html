@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AskJimmy — My Account</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main>
+    <h1>My Account</h1>
+    <div id="accountContent">Loading…</div>
+  </main>
+
+  <script src="/common.js"></script>
+  <script>
+    renderHeader('account');
+    const myId = getMyId();
+
+    async function load() {
+      const res = await fetch(`/api/sellers/${myId}`);
+      const content = document.getElementById('accountContent');
+
+      if (!res.ok) {
+        content.innerHTML = `
+          <div class="card">
+            <p>You haven't set up a seller profile yet — it's created automatically the first time you list an item.</p>
+            <a href="/create.html"><button type="button">Sell an item</button></a>
+          </div>
+        `;
+        return;
+      }
+
+      const profile = await res.json();
+
+      content.innerHTML = `
+        <form class="card" id="profileForm">
+          <label>Your name</label>
+          <input type="text" id="name" required value="${profile.name || ''}" />
+          <label>Phone number</label>
+          <input type="tel" id="phone" required value="${profile.phone || ''}" />
+          <label>Default pickup address / neighborhood</label>
+          <input type="text" id="pickupAddress" value="${profile.pickupAddress || ''}" />
+          <button type="submit">Save changes</button>
+          <p class="hint" id="profileSaved" style="display:none; margin-top:8px;">Saved!</p>
+        </form>
+
+        <div class="card">
+          <label style="margin-top:0;">Payment method</label>
+          ${
+            profile.paymentLast4
+              ? `<p class="hint">Card ending in ${profile.paymentLast4} · expires ${profile.paymentExpiry} · postal/zip ${profile.paymentPostalCode || 'not on file'}</p>`
+              : `<p class="hint">No payment method on file yet.</p>`
+          }
+          <button type="button" id="showPaymentFormBtn" class="secondary">
+            ${profile.paymentLast4 ? 'Update card' : 'Add card'}
+          </button>
+
+          <form id="paymentForm" style="display:none; margin-top:14px;">
+            <label>Card number</label>
+            <input type="text" id="cardNumber" required inputmode="numeric" />
+            <label>Expiry (MM/YY)</label>
+            <input type="text" id="cardExpiry" required placeholder="MM/YY" />
+            <label>Postal/zip code</label>
+            <input type="text" id="cardPostal" required placeholder="For card verification (AVS)" />
+            <button type="submit">Save card</button>
+            <p class="hint" id="paymentSaved" style="display:none; margin-top:8px;">Card saved!</p>
+          </form>
+        </div>
+      `;
+
+      document.getElementById('profileForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const res = await fetch('/api/sellers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sellerId: myId,
+            name: document.getElementById('name').value,
+            phone: document.getElementById('phone').value,
+            pickupAddress: document.getElementById('pickupAddress').value,
+          }),
+        });
+        if (!res.ok) {
+          alert('Please fill in your name and phone number.');
+          return;
+        }
+        const saved = document.getElementById('profileSaved');
+        saved.style.display = 'block';
+        setTimeout(() => (saved.style.display = 'none'), 2000);
+      });
+
+      document.getElementById('showPaymentFormBtn').addEventListener('click', () => {
+        document.getElementById('paymentForm').style.display = 'block';
+        document.getElementById('showPaymentFormBtn').style.display = 'none';
+      });
+
+      document.getElementById('paymentForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const res = await fetch(`/api/sellers/${myId}/payment-method`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cardNumber: document.getElementById('cardNumber').value,
+            expiry: document.getElementById('cardExpiry').value,
+            postalCode: document.getElementById('cardPostal').value,
+          }),
+        });
+        if (!res.ok) {
+          alert('Please enter a valid card number, expiry, and postal/zip code.');
+          return;
+        }
+        load();
+      });
+    }
+
+    load();
+  </script>
+</body>
+</html>
