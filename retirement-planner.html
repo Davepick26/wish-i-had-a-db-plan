@@ -910,8 +910,12 @@
       <div class="card chart-card">
         <div class="chart-head">
           <div>
-            <h2 style="border:0;padding:0;margin:0 0 4px;">Annual withdrawal from savings, by age</h2>
-            <div class="legend"><span class="legend-item area"><span class="sw" style="background:var(--dc)"></span>Drawn from DC + RRSP + TFSA + stocks + cash (nominal $, excludes CPP/OAS)</span></div>
+            <h2 style="border:0;padding:0;margin:0 0 4px;">Annual growth vs. withdrawal, by age</h2>
+            <div class="legend">
+              <span class="legend-item"><span class="sw" style="background:var(--dc)"></span>Investment growth</span>
+              <span class="legend-item"><span class="sw" style="background:var(--critical)"></span>Withdrawn from savings</span>
+            </div>
+            <div class="hint" style="margin-top:4px;">Nominal $, excludes CPP/OAS — this is what drives the balance chart above: when growth (above the line) outweighs withdrawal (below the line), the balance keeps growing.</div>
           </div>
           <button class="toggle-btn" id="tableToggle3" aria-pressed="false">View as table</button>
         </div>
@@ -2115,7 +2119,10 @@
         taxableIncomeNominal: regIncome + benefits,
         nonTaxableIncomeNominal: otherIncome,
         withdrawalNominal: regIncome + otherIncome,
-        withdrawalReal: (regIncome + otherIncome) / deflator
+        withdrawalReal: (regIncome + otherIncome) / deflator,
+        /* Investment growth in dollars this year — derived, not separately tracked:
+           end = (start - withdrawal) * (1+return), so growth = end - start + withdrawal. */
+        growthNominal: (runReg+runOther) - (regStart+otherStart) + (regIncome+otherIncome)
       });
     }
 
@@ -2625,21 +2632,117 @@
     $('table2').innerHTML = '<table class="data-table"><thead><tr><th>Age</th><th>Total balance</th></tr></thead><tbody>'+rows+'</tbody></table>';
   }
 
-  /* The balance chart above nets out growth against withdrawals into a single
+  /* Growth and withdrawal are both annual flows (tens of thousands), while the
+     balance chart above is a cumulative stock (hundreds of thousands to
+     millions) — putting them on one shared axis would flatten this chart to
+     nothing, so this scale has its own zero-centered domain, with growth
+     rising above the baseline and withdrawal falling below it. */
+  function buildBipolarScale(data, xKey, posKey, negKey){
+    var xs = data.map(function(d){ return d[xKey]; });
+    var xMin = Math.min.apply(null, xs), xMax = Math.max.apply(null, xs);
+    var absMax = 0;
+    data.forEach(function(d){
+      if(d[posKey] > absMax) absMax = d[posKey];
+      if(d[negKey] > absMax) absMax = d[negKey];
+    });
+    absMax = niceMax(absMax*1.15 || 10);
+    var x = function(v){ return PAD.l + (v-xMin)/(xMax-xMin||1) * (CW-PAD.l-PAD.r); };
+    var plotH = CH-PAD.t-PAD.b;
+    var zeroY = PAD.t + plotH/2;
+    var y = function(v){ return zeroY - (v/absMax) * (plotH/2); };
+    return { x:x, y:y, xMin:xMin, xMax:xMax, absMax:absMax, zeroY:zeroY };
+  }
+  function verticalBarPath(cx, barW, yBase, yTip, r){
+    var half = barW/2;
+    r = Math.max(0, Math.min(r, half, Math.abs(yTip-yBase)));
+    if(yTip <= yBase){
+      return 'M'+(cx-half)+','+yBase+' L'+(cx-half)+','+(yTip+r)+' Q'+(cx-half)+','+yTip+' '+(cx-half+r)+','+yTip+
+        ' L'+(cx+half-r)+','+yTip+' Q'+(cx+half)+','+yTip+' '+(cx+half)+','+(yTip+r)+' L'+(cx+half)+','+yBase+' Z';
+    }
+    return 'M'+(cx-half)+','+yBase+' L'+(cx-half)+','+(yTip-r)+' Q'+(cx-half)+','+yTip+' '+(cx-half+r)+','+yTip+
+      ' L'+(cx+half-r)+','+yTip+' Q'+(cx+half)+','+yTip+' '+(cx+half)+','+(yTip-r)+' L'+(cx+half)+','+yBase+' Z';
+  }
+  function drawGrowthWithdrawalAxes(svg, scales){
+    var ticks = 4;
+    for(var i=-ticks;i<=ticks;i++){
+      var val = scales.absMax * i/ticks;
+      var yy = scales.y(val);
+      svg.appendChild(svgEl('line', { x1:PAD.l, x2:CW-PAD.r, y1:yy, y2:yy, class:'grid-line' }));
+      var t = svgEl('text', { x:PAD.l-8, y:yy+3.5, class:'axis-text', 'text-anchor':'end' });
+      t.textContent = moneyShort(Math.abs(val));
+      svg.appendChild(t);
+    }
+    var xTicks = Math.min(scales.xMax-scales.xMin, 8);
+    for(var j=0;j<=xTicks;j++){
+      var age = Math.round(scales.xMin + (scales.xMax-scales.xMin) * j/xTicks);
+      var xx = scales.x(age);
+      var t2 = svgEl('text', { x:xx, y:CH-PAD.b+18, class:'axis-text', 'text-anchor':'middle' });
+      t2.textContent = age;
+      svg.appendChild(t2);
+    }
+    svg.appendChild(svgEl('line', { x1:PAD.l, x2:CW-PAD.r, y1:scales.zeroY, y2:scales.zeroY, class:'grid-line', style:'stroke:var(--ink-muted)' }));
+  }
+  function attachGrowthWithdrawalHover(svg, tooltip, data, scales){
+    var crosshair = svgEl('line', { class:'crosshair', y1:PAD.t, y2:CH-PAD.b });
+    svg.appendChild(crosshair);
+    var hit = svgEl('rect', { x:PAD.l, y:PAD.t, width:CW-PAD.l-PAD.r, height:CH-PAD.t-PAD.b, class:'hit-rect' });
+    svg.appendChild(hit);
+    function nearest(px){
+      var minD = Infinity, idx = 0;
+      data.forEach(function(d,i){ var dx = Math.abs(scales.x(d.age)-px); if(dx<minD){ minD=dx; idx=i; } });
+      return idx;
+    }
+    function move(evt){
+      var rect = svg.getBoundingClientRect();
+      var clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+      var px = (clientX - rect.left) * (CW/rect.width);
+      var i = nearest(px);
+      var d = data[i];
+      var cx = scales.x(d.age);
+      crosshair.setAttribute('x1', cx); crosshair.setAttribute('x2', cx); crosshair.style.opacity = 1;
+      var net = d.growthNominal - d.withdrawalNominal;
+      tooltip.innerHTML = '<div class="t-age">Age '+d.age+'</div>'
+        + '<div class="t-row"><span class="t-dot" style="background:var(--dc)"></span>Growth: '+fmtMoney0.format(Math.round(d.growthNominal))+'</div>'
+        + '<div class="t-row"><span class="t-dot" style="background:var(--critical)"></span>Withdrawn: '+fmtMoney0.format(Math.round(d.withdrawalNominal))+'</div>'
+        + '<div class="t-row">Net: '+(net>=0?'+':'')+fmtMoney0.format(Math.round(net))+'</div>';
+      var wrapRect = svg.parentElement.getBoundingClientRect();
+      var leftPx = (cx/CW)*rect.width + (rect.left - wrapRect.left);
+      tooltip.style.left = leftPx+'px';
+      tooltip.style.top = ((scales.zeroY/CH)*rect.height - 10)+'px';
+      tooltip.style.opacity = 1;
+    }
+    function leave(){ crosshair.style.opacity = 0; tooltip.style.opacity = 0; }
+    hit.addEventListener('mousemove', move);
+    hit.addEventListener('mouseleave', leave);
+    hit.addEventListener('touchmove', function(e){ move(e); e.preventDefault(); }, {passive:false});
+    hit.addEventListener('touchend', leave);
+  }
+  /* The balance chart above nets growth against withdrawals into a single
      line, which can look like nothing is coming out if returns outpace the
-     withdrawal rate — this chart makes the withdrawal itself, in isolation,
-     directly visible year by year. */
+     withdrawal rate — this chart is the "why": growth and withdrawal as their
+     own diverging bars, so both are directly visible every year regardless of
+     which one wins. */
   function renderWithdrawalChart(model){
     var svg = $('chartWithdrawal');
     svg.innerHTML = '';
     svg.setAttribute('viewBox','0 0 '+CW+' '+CH);
     var data = model.decumulation;
     if(!data.length) return;
-    var scales = buildScales(data, 'age', ['withdrawalNominal']);
-    drawAxes(svg, scales);
+    var scales = buildBipolarScale(data, 'age', 'growthNominal', 'withdrawalNominal');
+    drawGrowthWithdrawalAxes(svg, scales);
 
-    svg.appendChild(svgEl('path', { d: areaPathFor(data,'age','withdrawalNominal',scales), class:'series-area', style:'fill:var(--dc)' }));
-    svg.appendChild(svgEl('path', { d: pathFor(data,'age','withdrawalNominal',scales), class:'series-line', style:'stroke:var(--dc)' }));
+    var n = data.length;
+    var slotW = (CW-PAD.l-PAD.r) / Math.max(n-1, 1);
+    var barW = Math.max(2, Math.min(16, slotW*0.55));
+    data.forEach(function(d){
+      var cx = scales.x(d.age);
+      if(d.growthNominal > 0.5){
+        svg.appendChild(svgEl('path', { d: verticalBarPath(cx, barW, scales.zeroY, scales.y(d.growthNominal), 3), fill:'var(--dc)' }));
+      }
+      if(d.withdrawalNominal > 0.5){
+        svg.appendChild(svgEl('path', { d: verticalBarPath(cx, barW, scales.zeroY, scales.y(-d.withdrawalNominal), 3), fill:'var(--critical)' }));
+      }
+    });
 
     if(model.depletionAge!==null && model.depletionAge <= model.planToAge){
       var rx = scales.x(model.depletionAge);
@@ -2649,14 +2752,17 @@
       svg.appendChild(rl);
     }
 
-    attachHover(svg, $('tooltip3'), data, scales, [ {key:'withdrawalNominal', color:'var(--dc)', label:'Withdrawn from savings'} ]);
+    attachGrowthWithdrawalHover(svg, $('tooltip3'), data, scales);
     renderTable3(model);
   }
   function renderTable3(model){
     var rows = model.decumulation.map(function(d){
-      return '<tr><td>'+d.age+'</td><td>'+fmtMoney0.format(Math.round(d.withdrawalNominal))+'</td></tr>';
+      var net = d.growthNominal - d.withdrawalNominal;
+      return '<tr><td>'+d.age+'</td><td>'+fmtMoney0.format(Math.round(d.growthNominal))+'</td>'
+        + '<td>'+fmtMoney0.format(Math.round(d.withdrawalNominal))+'</td>'
+        + '<td>'+(net>=0?'+':'')+fmtMoney0.format(Math.round(net))+'</td></tr>';
     }).join('');
-    $('table3').innerHTML = '<table class="data-table"><thead><tr><th>Age</th><th>Withdrawn from savings</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    $('table3').innerHTML = '<table class="data-table"><thead><tr><th>Age</th><th>Growth</th><th>Withdrawn</th><th>Net</th></tr></thead><tbody>'+rows+'</tbody></table>';
   }
 
   /* ---------------- results text ---------------- */
